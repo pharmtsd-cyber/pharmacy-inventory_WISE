@@ -109,6 +109,8 @@ export function renderDailyItems() {
             
             <div class="input-group shadow-sm mt-2">
               <input type="number" id="qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="本次數量" inputmode="numeric" pattern="[0-9]*">
+              <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('qty-${item.locCode}', '${safeName}')"><i class="bi bi-calculator fs-5"></i></button>
+              
               <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitDailyOne('${item.locCode}', '${item.drugCode}', '${safeName}', '${item.tableId}')">確認送出</button>
             </div>
           </div>
