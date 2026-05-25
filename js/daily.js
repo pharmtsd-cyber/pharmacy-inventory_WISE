@@ -118,7 +118,7 @@ export function renderDailyItems() {
         
     } else {
        // 已盤點清單同樣套用交錯色，維持視覺統一
-       html += `
+      html += `
         <div class="card drug-card mb-2 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
           <div class="card-body p-2">
             <div class="d-flex justify-content-between mb-1">
@@ -132,7 +132,7 @@ export function renderDailyItems() {
             <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top">
               <div class="fs-4 fw-bold text-success">${item.countedQty}</div>
               <div>
-                <button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editDailyQty('${item.locCode}', '${item.drugCode}', '${safeName}', '${item.tableId}', '${item.countedQty}')">修改</button>
+                <button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editDailyQty('${item.locCode}', '${item.countedQty}')">修改</button>
                 <button class="btn btn-sm btn-outline-danger py-0" onclick="toggleDailyStatus('${item.locCode}', '作廢')">作廢</button>
               </div>
             </div>
