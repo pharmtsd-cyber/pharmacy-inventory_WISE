@@ -92,3 +92,75 @@ window.voidDrugNote = voidDrugNote;
 window.enterTableInventory = enterTableInventory;
 window.handleMonthlyBack = handleMonthlyBack;
 window.refreshMonthlyData = refreshMonthlyData;
+
+// ==========================================
+// ✨ 全域小算盤功能
+// ==========================================
+let calcTargetId = null;
+let calcExpression = '';
+
+window.openCalculator = function(targetId, title = '小算盤') {
+  calcTargetId = targetId;
+  const targetInput = document.getElementById(targetId);
+  // 如果輸入框已經有數字，就帶入作為算式開頭
+  calcExpression = targetInput ? targetInput.value || '' : '';
+  document.getElementById('calc-title').innerText = title;
+  updateCalcDisplay();
+  
+  const calcModal = new window.bootstrap.Modal(document.getElementById('calculatorModal'));
+  calcModal.show();
+};
+
+window.calcPress = function(val) {
+  if (calcExpression === 'Error') calcExpression = '';
+  calcExpression += val;
+  updateCalcDisplay();
+};
+
+window.calcClear = function() {
+  calcExpression = '';
+  updateCalcDisplay();
+};
+
+window.calcBackspace = function() {
+  if (calcExpression === 'Error') calcExpression = '';
+  calcExpression = calcExpression.toString().slice(0, -1);
+  updateCalcDisplay();
+};
+
+window.calcEqual = function() {
+  if (!calcExpression) return;
+  try {
+    // 嚴格過濾字元，防止非法符號並進行安全運算
+    const sanitized = calcExpression.toString().replace(/[^-()\d/*+.]/g, '');
+    let result = new Function('return ' + sanitized)();
+    if (result !== undefined && !isNaN(result)) {
+       result = Math.round(result * 1000) / 1000; // 解決 JavaScript 浮點數誤差
+       calcExpression = result.toString();
+    } else {
+       calcExpression = 'Error';
+    }
+  } catch(e) {
+    calcExpression = 'Error';
+  }
+  updateCalcDisplay();
+};
+
+window.calcConfirm = function() {
+  calcEqual(); // 點擊確認時，自動把還沒按等於的算式結算出來
+  if (calcExpression !== 'Error' && calcExpression !== '') {
+    const target = document.getElementById(calcTargetId);
+    if (target) {
+        target.value = calcExpression;
+    }
+  }
+  window.bootstrap.Modal.getInstance(document.getElementById('calculatorModal')).hide();
+};
+
+function updateCalcDisplay() {
+  const display = document.getElementById('calc-display');
+  if(display) {
+      display.innerText = calcExpression || '0';
+      display.scrollLeft = display.scrollWidth; // 算式變長時自動往右捲動
+  }
+}
