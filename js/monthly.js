@@ -338,12 +338,29 @@ export function renderMonthlyDesk() {
   tableData.items.forEach(item => { if (!uniqueDrugs.includes(item.drugCode)) uniqueDrugs.push(item.drugCode); }); 
   const getDrugColor = (code) => { const index = uniqueDrugs.indexOf(code); return index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd'; }; 
   
-  let html = ''; 
+let html = ''; 
   uncountedItems.forEach(item => { 
     const borderColor = getDrugColor(item.drugCode); 
-    html += `<div class="card drug-card mb-3 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;"><div class="card-body p-3"><div class="fw-bold fs-5 text-dark mb-2">${item.drugName}</div><div class="d-flex flex-wrap gap-1 mb-2"><span class="badge bg-light text-dark border border-secondary">儲位: ${item.locCode}</span><span class="badge bg-light text-dark border border-secondary">代碼: ${item.drugCode}</span></div><div class="input-group shadow-sm"><input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value=""><button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', '${item.drugName}', '${item.tableId}')">確認送出</button></div></div></div>`; 
+    const safeName = item.drugName.replace(/'/g, "\\'"); // 處理藥名有單引號的問題
+    
+    html += `<div class="card drug-card mb-3 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
+      <div class="card-body p-3">
+        <div class="fw-bold fs-5 text-dark mb-2">${item.drugName}</div>
+        <div class="d-flex flex-wrap gap-1 mb-2">
+          <span class="badge bg-light text-dark border border-secondary">儲位: ${item.locCode}</span>
+          <span class="badge bg-light text-dark border border-secondary">代碼: ${item.drugCode}</span>
+        </div>
+        <div class="input-group shadow-sm">
+          <input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value="">
+          
+          <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('m-qty-${item.locCode}', '${safeName}')"><i class="bi bi-calculator fs-5"></i></button>
+          
+          <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', '${safeName}', '${item.tableId}')">確認送出</button>
+        </div>
+      </div>
+    </div>`; 
   }); 
-  area.innerHTML = html; 
+  area.innerHTML = html;
 }
 
 // 🌟 配合上述修正，簡化送出後的畫面互動
