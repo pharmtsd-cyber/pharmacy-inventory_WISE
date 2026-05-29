@@ -23,9 +23,11 @@ export function handleLogin() {
     } else { 
       alert("❌ 登入失敗：" + (res.message || "未知錯誤")); 
     }
-  }).catch(err => { 
+}).catch(err => { 
     toggleLoader(false); 
-    alert('⚠️ 無法連線到伺服器，請檢查網路狀態。'); 
+    // 🌟 讓系統說實話！把真正的錯誤訊息印出來
+    console.error("登入過程發生錯誤:", err);
+    alert('⚠️ 系統錯誤：' + err.message); 
   });
 }
 
