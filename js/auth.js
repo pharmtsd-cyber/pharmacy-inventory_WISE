@@ -3,14 +3,18 @@ import { toggleLoader, switchView } from './ui.js';
 import { session } from './config.js';
 
 export function handleLogin() {
-  const id = document.getElementById('login-id').value.trim(); 
+  const inputElement = document.getElementById('login-id');
+  if (!inputElement) return alert('找不到輸入框元件');
   
+  const id = inputElement.value.trim(); 
   if(!id) return alert('請輸入員工編號');
   
   toggleLoader(true);
   
-fetchBackend('checkLogin', payload).then(res => {
+  // 🌟 直接傳送 { id: id }，把剛剛報錯的 payload 變數拿掉！
+  fetchBackend('checkLogin', { id: id }).then(res => {
     toggleLoader(false);
+    
     if(res.success) {
       session.id = res.userId || res.id; 
       session.name = res.userName || res.name; 
@@ -24,12 +28,12 @@ fetchBackend('checkLogin', payload).then(res => {
       
       // 順利切換到選單畫面
       switchView('view-mode-select'); 
+      
     } else { 
       alert("❌ 登入失敗：" + (res.message || "未知錯誤")); 
     }
-  }).catch(err => {
+  }).catch(err => { 
     toggleLoader(false); 
-    // 🌟 讓系統說實話！把真正的錯誤訊息印出來
     console.error("登入過程發生錯誤:", err);
     alert('⚠️ 系統錯誤：' + err.message); 
   });
