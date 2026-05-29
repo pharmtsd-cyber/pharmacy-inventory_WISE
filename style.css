@@ -28,3 +28,20 @@ body {
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .drag-handle { cursor: grab; font-size: 1.8rem; color: #adb5bd; padding: 10px; touch-action: none; }
 .sortable-ghost { opacity: 0.4; background-color: #e2e8f0 !important; }
+
+/* 🌟 大廳卡片專屬互動效果 */
+.dept-card {
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s;
+  background-color: #ffffff;
+  border-radius: 12px;
+}
+.dept-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
+  background-color: #f8f9fa;
+}
+.dept-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important;
+}
