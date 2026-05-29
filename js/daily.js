@@ -314,4 +314,39 @@ export function highlightSearchItem() { const kw = document.getElementById('admi
 
 export function rebuildAdminList() { if(confirm('確定要重建清單嗎？')) { adminCombinedList = adminData.selectable.map(i => ({ ...i, order: '' })); renderSortableList(); } }
 
-export function saveAdminDataToServer() { const payload = []; let currentOrder = 1; document.querySelectorAll('.sortable-item').forEach(el => { payload.push({ tableId: el.getAttribute('data-table'), locCode: el.getAttribute('data-loc'), drugCode: el.getAttribute('data-drug'), drugName: el.getAttribute('data-name'), order: el.getAttribute('data-hidden') === 'true' ? 0 : currentOrder++ }); }); toggleLoader(true); fetchBackend('saveAdminSortData', { payloadArray: payload }).then(() => { toggleLoader(false); showToast('排序已儲存！'); switchView('view-daily-app'); changeDailyDate(); }).catch(err => { toggleLoader(false); alert('儲存失敗'); }); }
+export function saveAdminDataToServer() { 
+  const payload = []; 
+  let currentOrder = 1; 
+  
+  // 1. 確實抓取畫面上拖拉排序與隱藏後的最新狀態
+  document.querySelectorAll('.sortable-item').forEach(el => { 
+    payload.push({ 
+      tableId: el.getAttribute('data-table'), 
+      locCode: el.getAttribute('data-loc'), 
+      drugCode: el.getAttribute('data-drug'), 
+      drugName: el.getAttribute('data-name'), 
+      order: el.getAttribute('data-hidden') === 'true' ? 0 : currentOrder++ 
+    }); 
+  }); 
+  
+  toggleLoader(true); 
+  
+  // 🌟 核心修正：使用 JSON.stringify(payload) 將複雜陣列打碎成標準字串傳送，徹底解決 [object Object] 的通訊 Bug！
+  fetchBackend('saveAdminSortData', { payloadArray: JSON.stringify(payload) }).then(res => { 
+    toggleLoader(false); 
+    
+    if (res && res.success) {
+      showToast('🎉 管理排序順序已成功儲存至資料庫！'); 
+      // 儲存成功後，順便重新載入當日資料，讓主畫面同步最新排序
+      if (typeof changeDailyDate === 'function') {
+        changeDailyDate();
+      }
+    } else {
+      alert('❌ 儲存失敗：' + (res.message || '後端資料庫寫入異常'));
+    }
+  }).catch(err => {
+    toggleLoader(false);
+    console.error('排序儲存錯誤:', err);
+    alert('⚠️ 儲存時連線發生異常：' + err.message);
+  });
+}
