@@ -14,7 +14,8 @@ export let barcodeQtyResolve = null;
 export function initMonthlyMode() {
   switchView('view-monthly-app'); 
   switchMonthlyTab('tab-dashboard'); 
-  updateOnlineUI(); 
+  updateOnlineUI();
+  switchOnlineTab('掃描');
   
   // 🌟 這裡就是幫您補上的「日期預設為今天」邏輯
   const today = new Date();
@@ -33,7 +34,6 @@ export function initMonthlyMode() {
       toggleLoader(false); 
     });
   }).catch(err => { toggleLoader(false); alert("載入失敗"); });
-  switchOnlineTab('掃描');
 }
 
 // 🌟 啟動相機：完美出場機制 (先遮罩，等完全準備好再顯示畫面)
