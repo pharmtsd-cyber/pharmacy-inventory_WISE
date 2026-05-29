@@ -24,9 +24,6 @@ import {
 } from './history.js';
 
 
-// 需要從 config.js 多 import 一個 currentDept
-import { session, DEPT_NAME, DEPT_COLOR, currentDept } from './config.js';
-
 // ==========================================
 // 🚀 全院多藥局「環境外觀動態渲染引擎」
 // ==========================================
