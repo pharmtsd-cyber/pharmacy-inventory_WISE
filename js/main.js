@@ -1,4 +1,4 @@
-import { session } from './config.js';
+import { session, DEPT_NAME, DEPT_COLOR } from './config.js';
 import { switchView } from './ui.js';
 import { handleLogin, handleLogout } from './auth.js';
 
@@ -22,6 +22,24 @@ import {
   initHistoryMode, addHistoryDate, removeHistoryDate, handleDrugSearch, selectDrugFilter, clearDrugFilter, 
   renderHistoryTable, toggleModalCol, addQuickDate, openNoteModal, submitDrugNote, voidDrugNote 
 } from './history.js';
+
+
+// ==========================================
+// 🚀 全院多藥局「環境外觀動態渲染引擎」
+// ==========================================
+(function applyDynamicEnvironment() {
+  // 1. 動態變更瀏覽器分頁標題
+  document.title = `${DEPT_NAME}盤點APP`;
+
+  // 2. 動態覆蓋 CSS 主題色 (利用 CSS 變數魔法)
+  document.documentElement.style.setProperty('--academic-primary', DEPT_COLOR);
+
+  // 3. 直接精準替換導覽列文字
+  const brandEl = document.querySelector('.navbar-brand');
+  if (brandEl) {
+    brandEl.innerHTML = `<i class="bi bi-capsule"></i> ${DEPT_NAME}盤點APP`;
+  }
+})();
 
 window.switchView = switchView;
 window.handleLogin = handleLogin;
