@@ -230,7 +230,7 @@ export function submitMonthlyStock() {
     if (searchInput) searchInput.focus();
   }, 10);
   
-  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點庫存', action: '', dispType: '', drugCode: currentDrug.invCode, drugName: currentDrug.name, priceCodeSelect: currentDrug.priceCode, handQty: qty, tableId: 'BFYYY', locCode: '', barcode: '' })
+  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點庫存', actionSrc: '', dispType: '', drugCode: currentDrug.invCode, drugName: currentDrug.name, priceCodeSelect: currentDrug.priceCode, handQty: qty, tableId: 'BFYYY', locCode: '', barcode: '' })
     .then((res) => { 
         if (res && res.success) pushRecordLocally(res.resultRecord); 
         else showToast('寫入異常: '+res.message, 'delete'); // 異常改用上方紅色 Toast
@@ -266,7 +266,7 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
     setTimeout(() => bcInput.focus(), 10); 
   }
 
-  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: type, action: actionSrc, dispType: dispType, drugCode: payloadDrug.invCode, drugName: payloadDrug.name, priceCodeSelect: writePriceCode, handQty: qty, tableId: 'BFZZZ', locCode: '', barcode: barcodeStr })
+  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: type, actionSrc: actionSrc, dispType: dispType, drugCode: payloadDrug.invCode, drugName: payloadDrug.name, priceCodeSelect: writePriceCode, handQty: qty, tableId: 'BFZZZ', locCode: '', barcode: barcodeStr })
     .then((res) => { 
         if(res && res.success) pushRecordLocally(res.resultRecord); 
         else showToast('寫入異常: '+res.message, 'delete'); 
@@ -447,7 +447,7 @@ export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
     }, 10);
   } 
   
-  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台', action: '', dispType: '', drugCode: dCode, drugName: dName, handQty: qty, tableId: tId, locCode: loc })
+  fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台', actionSrc: '', dispType: '', drugCode: dCode, drugName: dName, handQty: qty, tableId: tId, locCode: loc })
     .then((res) => { 
       if (res && res.success) { pushRecordLocally(res.resultRecord); } 
       else { showToast('寫入失敗: ' + (res.message || ''), 'error'); item.hasCounted = originalStatus; item.countedQty = originalQty; item.countedUser = originalUser; item.countedTime = originalTime; renderMonthlyDesk(); } 
