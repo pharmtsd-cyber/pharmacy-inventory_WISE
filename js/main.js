@@ -24,22 +24,36 @@ import {
 } from './history.js';
 
 
+// 需要從 config.js 多 import 一個 currentDept
+import { session, DEPT_NAME, DEPT_COLOR, currentDept } from './config.js';
+
 // ==========================================
 // 🚀 全院多藥局「環境外觀動態渲染引擎」
 // ==========================================
 (function applyDynamicEnvironment() {
-  // 1. 動態變更瀏覽器分頁標題
-  document.title = `${DEPT_NAME}盤點APP`;
-
-  // 2. 動態覆蓋 CSS 主題色 (利用 CSS 變數魔法)
-  document.documentElement.style.setProperty('--academic-primary', DEPT_COLOR);
-
-  // 3. 直接精準替換導覽列文字
-  const brandEl = document.querySelector('.navbar-brand');
-  if (brandEl) {
-    brandEl.innerHTML = `<i class="bi bi-capsule"></i> ${DEPT_NAME}盤點APP`;
+  if (!currentDept) {
+    // 💡 情況 A：網址沒有參數，停在大廳
+    switchView('view-lobby');
+    document.title = '盤點系統入口大廳';
+  } else {
+    // 💡 情況 B：網址有參數，進入該藥局登入畫面並套用主題
+    switchView('view-login');
+    document.title = `${DEPT_NAME}盤點APP`;
+    document.documentElement.style.setProperty('--academic-primary', DEPT_COLOR);
+    const brandEl = document.querySelector('.navbar-brand');
+    if (brandEl) brandEl.innerHTML = `<i class="bi bi-capsule"></i> ${DEPT_NAME}盤點APP`;
   }
 })();
+
+// 🌟 點擊大廳按鈕：加上參數並重新載入網頁 (乾淨切換環境)
+window.enterPharmacy = function(deptCode) {
+  window.location.href = `?dept=${deptCode}`;
+};
+
+// 🌟 返回模式選擇 (每日/月盤點)
+window.backToModeSelect = function() {
+  switchView('view-mode-select');
+};
 
 window.switchView = switchView;
 window.handleLogin = handleLogin;
