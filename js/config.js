@@ -10,10 +10,10 @@ const currentDept = urlParams.get('dept') || 'admin';
 // 🌟 2. 各單位的「GAS 後端網址」對照表
 const BACKEND_MAP = {
   admin: "https://script.google.com/macros/s/AKfycbyi8p5Mz9K68ZKBQuHv6MWa10KPLjKrKdcm_vZMYz1L6pNli6aLBKkQdG94Mnsj-uoC/exec", // 智能運管組 (目前的開發網址)
-  ipd: "https://script.google.com/macros/s/您的住院藥局GAS網址/exec",
-  opd: "https://script.google.com/macros/s/您的門診藥局GAS網址/exec", 
-  erd: "https://script.google.com/macros/s/您的急診藥局GAS網址/exec", 
-  comp: "https://script.google.com/macros/s/您的調配藥局GAS網址/exec" 
+  ipd: "https://script.google.com/macros/s/AKfycbydOWsDkwmX8BRKyOdbdidsdbC7cT0FIBmWVkmdjKKYw-4XxUXaQElx99AFMz_KIPlVsg/exec",
+  opd: "https://script.google.com/macros/s/AKfycbymGL_J04TEDCFV7xH-M5-zCYmgj8BAtz6WVE06m3MR4Sl1rZ1SGs6ALDyAlWbsoDmHBg/exec", 
+  erd: "https://script.google.com/macros/s/AKfycbyMTHmPUdKmhyLO4Gm-OPKuYyAFpclId_bwFcSAUsAIt4QKLlMCXpUOGXBI1MPfxmKg/exec", 
+  comp: "https://script.google.com/macros/s/AKfycbwQzl8Cbi6ZZtcMDcnm50m-5L6771mJyxIVoX_d_yIlgA7QJ3iN0ss_RonUBZeHuzFhig/exec" 
 };
 
 // 🌟 3. 各單位的「顯示名稱」對照表
