@@ -233,13 +233,18 @@ export function submitDrugNote() {
   const noteText = document.getElementById('new-note-text').value.trim();
   if (!noteText) return alert('請輸入註記內容！');
   
-  const payload = { noteAction: 'insert', code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, userName: session.name };
+  // 🌟 關鍵修改 1：統一由前端產生唯一的正式流水號
+  const newSn = 'NOTE' + new Date().getTime();
+  
+  // 🌟 關鍵修改 2：將產生的 sn 放進 payload 準備傳給後端
+  const payload = { noteAction: 'insert', sn: newSn, code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, userName: session.name };
   
   // 樂觀更新 UI
   document.getElementById('new-note-text').value = '';
   const nowStr = new Date().toLocaleString('zh-TW', { hour12: false }).replace(/-/g, '/');
-  const tempSn = 'TMP' + new Date().getTime();
-  drugNotesData.unshift({ sn: tempSn, code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, status: '成立', createTime: nowStr, creator: session.name, updateTime: nowStr, updater: session.name });
+  
+  // 🌟 關鍵修改 3：本地陣列直接使用這個 newSn
+  drugNotesData.unshift({ sn: newSn, code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, status: '成立', createTime: nowStr, creator: session.name, updateTime: nowStr, updater: session.name });
   renderNoteList();
   renderHistoryTable(); // 更新外層 Icon
   
