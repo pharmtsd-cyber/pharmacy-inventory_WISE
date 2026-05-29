@@ -40,5 +40,8 @@ export function handleLogin() {
 }
 
 export function handleLogout() { 
-  if(confirm('確定要登出嗎？')) location.reload(); 
+  if(confirm('確定要登出嗎？')) {
+    // 💡 修改：拔除網址列參數，回到乾淨的大廳首頁
+    window.location.href = window.location.pathname; 
+  }
 }
