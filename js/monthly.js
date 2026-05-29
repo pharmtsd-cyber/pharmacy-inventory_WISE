@@ -181,14 +181,30 @@ export function showSuccessCard(cardId, drugName, qty, actionTag, colorType = 's
   card.classList.remove('success-card-bottom');
   void card.offsetWidth; 
   
-  card.className = `mt-3 p-3 rounded shadow-lg text-center success-card-bottom bg-success text-white`;
+  // 🌟 判斷是否為「調劑」，切換為粉紅警告主題
+  let colorTheme = 'bg-success text-white';
+  let inlineStyle = '';
+  let iconClass = 'bi-check-circle-fill';
+  let drugNameColor = 'text-warning';
+  let dividerColor = 'border-light';
+
+  if (colorType === '調劑') {
+    colorTheme = 'text-danger border border-danger border-2'; // 紅字、紅邊框
+    inlineStyle = 'background-color: #fff0f4;'; // 粉紅底色
+    iconClass = 'bi-exclamation-circle-fill';
+    drugNameColor = 'text-danger';
+    dividerColor = 'border-danger border-opacity-25';
+  }
+  
+  card.className = `mt-3 p-3 rounded shadow-lg text-center success-card-bottom ${colorTheme}`;
+  card.setAttribute('style', inlineStyle);
   card.innerHTML = `
-    <div class="fw-bold mb-1 opacity-75"><i class="bi bi-check-circle-fill"></i> 寫入成功</div>
-    <div class="fw-bold text-warning mb-2" style="font-size: 1.8rem; line-height: 1.2;">${drugName}</div>
+    <div class="fw-bold mb-1 opacity-75"><i class="bi ${iconClass}"></i> 寫入成功</div>
+    <div class="fw-bold mb-2 ${drugNameColor}" style="font-size: 1.8rem; line-height: 1.2;">${drugName}</div>
     <div class="fw-bold mb-2" style="font-size: 2.2rem;">
       <span class="fs-5 fw-normal opacity-75">${actionTag} 數量:</span> ${qty}
     </div>
-    <div class="small mt-2 border-top border-light pt-2" style="opacity: 0.8;">
+    <div class="small mt-2 border-top ${dividerColor} pt-2" style="opacity: 0.8;">
       <i class="bi bi-clock"></i> 處理時間: ${timeStr}
     </div>`;
     
@@ -225,7 +241,7 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
   } else { payloadDrug = parsedData; qty = parsedData.qty; barcodeStr = parsedData.barcode; writePriceCode = ''; }
   
   const actionTag = dispType === '調劑' ? '調劑(-)' : '退藥(+)'; 
-  showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, 'success'); 
+  showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, dispType);
   
   if (actionSrc === '手動') { 
     document.getElementById('online-qty').value = ''; onlineSelectedDrug = null; document.getElementById('online-selected-card').classList.add('d-none'); document.getElementById('online-drug-search').value=''; 
@@ -479,11 +495,26 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
   let html = ''; 
   recordsArray.forEach(record => { 
     const isVoid = record.status === '作廢';
-    const cardStyle = isVoid ? "opacity: 0.6; filter: grayscale(100%);" : "";
-    let qtyStr = record.handQty; let colorClass = 'text-primary'; let dispBadge = ''; 
-    if (record.dispType === '調劑') { qtyStr = `-${record.handQty}`; colorClass = 'text-danger'; dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; } 
-    else if (record.dispType === '退藥') { qtyStr = `+${record.handQty}`; colorClass = 'text-success'; dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; } 
     
+    let qtyStr = record.handQty; let colorClass = 'text-primary'; let dispBadge = ''; 
+    let cardBg = ''; // 🌟 新增底色變數
+    let borderClass = 'border-info'; // 🌟 預設邊框顏色
+
+    if (record.dispType === '調劑') { 
+      qtyStr = `-${record.handQty}`; 
+      colorClass = 'text-danger'; 
+      dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; 
+      cardBg = 'background-color: #fff0f4;'; // 🌟 調劑使用粉紅底色
+      borderClass = 'border-danger'; // 🌟 左側紅邊框
+    } 
+    else if (record.dispType === '退藥') { 
+      qtyStr = `+${record.handQty}`; 
+      colorClass = 'text-success'; 
+      dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; 
+      borderClass = 'border-success'; // 🌟 退藥使用綠邊框
+    } 
+    
+    const cardStyle = isVoid ? `opacity: 0.6; filter: grayscale(100%); ${cardBg}` : cardBg;
     const badgeHtml = isVoid ? `<span class="badge bg-secondary ms-1">已作廢</span>` : dispBadge;
     const locInfo = record.loc ? ` | 儲位: ${record.loc}` : ''; 
     
@@ -492,7 +523,8 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
       : `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editRecord('${record.sn}')">修改</button>
          <button class="btn btn-sm btn-outline-danger py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '作廢')">作廢</button>`;
     const editButtons = allowEdit ? `<div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top"><div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass}">${qtyStr}</div><div>${actionHtml}</div></div>` : `<div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass} mt-1 pt-1 border-top">${qtyStr}</div>`; 
-    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 border-info" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span></div>${editButtons}</div></div>`; 
+    
+    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 ${borderClass}" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span></div>${editButtons}</div></div>`; 
   }); 
   return html; 
 }
