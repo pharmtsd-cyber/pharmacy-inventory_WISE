@@ -8,7 +8,24 @@ export let adminCombinedList = [];
 export let sortableInstance = null; 
 export let adminData = null;
 
-export function initDailyMode() { currentDailyTab = '未盤'; updateTabUI(); switchView('view-daily-app'); loadDailyData(null); }
+export function initDailyMode() { 
+  currentDailyTab = '未盤'; 
+  updateTabUI(); 
+  switchView('view-daily-app'); 
+  
+  // 🌟 修正點：在進入畫面的瞬間，直接取得當下日期並填入選擇器
+  const today = new Date();
+  // 確保格式為標準的 YYYY-MM-DD (HTML date input 規定月份與日期必須強制補零)
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  const dateSelect = document.getElementById('header-date-select');
+  if (dateSelect) {
+    dateSelect.value = todayStr;
+  }
+
+  // 直接帶著今天的日期字串去跟後端要資料
+  loadDailyData(todayStr); 
+}
 export function changeDailyDate() { loadDailyData(document.getElementById('header-date-select').value); }
 
 export function loadDailyData(dateStr) {
