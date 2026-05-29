@@ -3,25 +3,29 @@ import { WEB_APP_URL } from './config.js';
 export function fetchBackend(action, data = {}) {
   return new Promise((resolve, reject) => {
     
-    // 🌟 核心修正：判斷傳入的 data 是什麼格式
-    let payload = { action: action };
+    // 🌟 終極大絕招：把所有資料通通轉成網址參數 (URLSearchParams)
+    // 這樣可以徹底無視 Google 轉址掉資料與版本卡死的魔咒！
+    const params = new URLSearchParams();
+    params.append('action', action);
     
-    // 如果傳入的是物件 (例如盤點送出)，就正常合併
-    if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-      payload = { ...payload, ...data };
+    if (typeof data === 'object' && data !== null) {
+      for (const key in data) {
+        // 如果傳入的是物件 (例如盤點資料或散彈槍員編)，自動拆解成網址參數
+        params.append(key, data[key]);
+      }
     } else {
-      // 🌟 如果傳入的只是單純的字串 (例如登入員編 'F0457')，就自動幫它包裝成 id 標籤
-      payload.id = data;    
-      payload.data = data;  
+      // 防呆：如果是單純字串
+      params.append('id', data);
+      params.append('data', data);
     }
 
-    fetch(WEB_APP_URL, {
-      method: 'POST',
-      redirect: 'follow', 
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8', 
-      },
-      body: JSON.stringify(payload)
+    // 拼湊出最終帶有完整資料的動態網址
+    const finalUrl = `${WEB_APP_URL}?${params.toString()}`;
+
+    // 改用 GET 請求，這在 Google Apps Script 中是 100% 最穩固、絕對不漏接的通訊方式
+    fetch(finalUrl, {
+      method: 'GET', 
+      redirect: 'follow'
     })
     .then(response => {
       if (!response.ok) throw new Error('網路回應錯誤，狀態碼: ' + response.status);
