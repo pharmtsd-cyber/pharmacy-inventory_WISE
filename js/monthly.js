@@ -277,11 +277,25 @@ export function switchMonthlyTab(tabId) {
   document.querySelectorAll('.monthly-content-section').forEach(s => s.classList.add('d-none'));
   document.getElementById(tabId).classList.remove('d-none');
   const tabsContainer = document.getElementById('monthly-tabs');
-  if (tabsContainer) { tabsContainer.querySelectorAll('.nav-link').forEach(btn => { btn.classList.remove('active', 'bg-academic', 'text-white'); btn.classList.add('bg-white', 'text-academic'); }); }
-  const activeBtnId = tabId.replace('tab-', 'btn-tab-'); const activeBtn = document.getElementById(activeBtnId);
-  if (activeBtn) { activeBtn.classList.remove('bg-white', 'text-academic'); activeBtn.classList.add('active', 'bg-academic', 'text-white'); }
+  if (tabsContainer) { 
+    tabsContainer.querySelectorAll('.nav-link').forEach(btn => { 
+      btn.classList.remove('active', 'bg-academic', 'text-white'); 
+      btn.classList.add('bg-white', 'text-academic'); 
+    }); 
+  }
+  const activeBtnId = tabId.replace('tab-', 'btn-tab-'); 
+  const activeBtn = document.getElementById(activeBtnId);
+  if (activeBtn) { 
+    activeBtn.classList.remove('bg-white', 'text-academic'); 
+    activeBtn.classList.add('active', 'bg-academic', 'text-white'); 
+  }
+  
+  // 原本的頁面載入邏輯
   if (tabId === 'tab-records') renderAllRecordLists();
   if (tabId === 'tab-dashboard') renderMonthlyDashboard();
+  
+  // 🌟 新增這行：當切換到「線上作業」時，強制預設為「掃描」小分頁
+  if (tabId === 'tab-online') switchOnlineTab('掃描');
 }
 
 // 🌟 修正問題 3：明確劃分切換標籤時的渲染邏輯
