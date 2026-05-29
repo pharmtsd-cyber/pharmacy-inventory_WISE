@@ -17,11 +17,32 @@
   <div id="toast-container"></div>
 
   <nav class="navbar navbar-dark navbar-academic fixed-top d-flex justify-content-between px-3">
-    <span class="navbar-brand mb-0 h6 text-truncate" style="max-width: 70%;"><i class="bi bi-hospital"></i> 藥局盤點APP | <span id="nav-info">未登入</span></span>
+    <div class="d-flex align-items-center">
+      <button class="btn btn-sm btn-outline-light me-2 fw-bold" id="btn-main-back" onclick="backToModeSelect()" style="display: none;">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      
+      <span class="navbar-brand mb-0 h6 text-truncate" style="max-width: 70%;">
+        <i class="bi bi-hospital"></i> 藥局盤點APP | <span id="nav-info">未登入</span>
+      </span>
+    </div>
     <button class="btn btn-sm btn-outline-light fw-bold" onclick="handleLogout()">登出</button>
   </nav>
 
-  <div id="view-login" class="container view-section active">
+  <div id="view-lobby" class="view-section">
+    <div class="container d-flex flex-column justify-content-center align-items-center vh-100">
+      <h2 class="fw-bold mb-4 text-dark"><i class="bi bi-hospital"></i> 亞東紀念醫院盤點系統</h2>
+      <div class="row w-100" style="max-width: 400px;">
+        <div class="col-12 mb-3"><button class="btn btn-lg w-100 text-white shadow-sm fw-bold" style="background-color: #1A365D;" onclick="enterPharmacy('opd')">門診藥局</button></div>
+        <div class="col-12 mb-3"><button class="btn btn-lg w-100 text-white shadow-sm fw-bold" style="background-color: #1E4D2B;" onclick="enterPharmacy('ipd')">住院藥局</button></div>
+        <div class="col-12 mb-3"><button class="btn btn-lg w-100 text-white shadow-sm fw-bold" style="background-color: #7A1717;" onclick="enterPharmacy('erd')">急診藥局</button></div>
+        <div class="col-12 mb-3"><button class="btn btn-lg w-100 text-white shadow-sm fw-bold" style="background-color: #4E342E;" onclick="enterPharmacy('comp')">調配藥局</button></div>
+        <div class="col-12 mb-3"><button class="btn btn-lg w-100 text-white shadow-sm fw-bold" style="background-color: #495057;" onclick="enterPharmacy('admin')">智能運管組</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-login" class="container view-section">
     <div class="card card-academic p-4 mt-4 bg-white shadow">
       <h4 class="text-center mb-4 fw-bold text-academic"><i class="bi bi-shield-lock"></i> 身分驗證</h4>
       
