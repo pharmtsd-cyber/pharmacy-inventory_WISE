@@ -309,27 +309,34 @@
         </div>
         <div class="modal-body p-3">
           <div id="calc-display" class="form-control text-end fs-3 fw-bold mb-3 shadow-sm bg-white text-academic" style="height: 60px; overflow-x: auto; white-space: nowrap; line-height: 45px;">0</div>
+          
           <div class="row g-2">
+            <div class="col-3"><button class="btn btn-danger w-100 fw-bold fs-4 shadow-sm" onclick="calcClear()">C</button></div>
+            <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('(')">(</button></div>
+            <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress(')')">)</button></div>
+            <div class="col-3"><button class="btn btn-warning w-100 fw-bold fs-5 shadow-sm h-100" onclick="calcBackspace()"><i class="bi bi-backspace"></i></button></div>
+            
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('7')">7</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('8')">8</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('9')">9</button></div>
-            <div class="col-3"><button class="btn btn-warning w-100 fw-bold fs-5 shadow-sm h-100" onclick="calcBackspace()"><i class="bi bi-backspace"></i></button></div>
+            <div class="col-3"><button class="btn btn-academic w-100 fw-bold fs-4 shadow-sm" onclick="calcPress('/')">÷</button></div>
             
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('4')">4</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('5')">5</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('6')">6</button></div>
-            <div class="col-3"><button class="btn btn-academic w-100 fw-bold fs-4 shadow-sm" onclick="calcPress('+')">+</button></div>
+            <div class="col-3"><button class="btn btn-academic w-100 fw-bold fs-4 shadow-sm" onclick="calcPress('*')">×</button></div>
             
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('1')">1</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('2')">2</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('3')">3</button></div>
             <div class="col-3"><button class="btn btn-academic w-100 fw-bold fs-4 shadow-sm" onclick="calcPress('-')">-</button></div>
             
-            <div class="col-3"><button class="btn btn-danger w-100 fw-bold fs-4 shadow-sm" onclick="calcClear()">C</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('0')">0</button></div>
             <div class="col-3"><button class="btn btn-outline-secondary w-100 fw-bold fs-4 shadow-sm bg-white" onclick="calcPress('.')">.</button></div>
             <div class="col-3"><button class="btn btn-success w-100 fw-bold fs-4 shadow-sm" onclick="calcEqual()">=</button></div>
+            <div class="col-3"><button class="btn btn-academic w-100 fw-bold fs-4 shadow-sm" onclick="calcPress('+')">+</button></div>
           </div>
+          
           <div class="mt-3">
             <button class="btn btn-academic w-100 fw-bold fs-5 shadow-sm py-2" onclick="calcConfirm()"><i class="bi bi-check2-circle"></i> 確認帶入</button>
           </div>
