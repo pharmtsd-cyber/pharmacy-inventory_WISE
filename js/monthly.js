@@ -15,9 +15,10 @@ export function initMonthlyMode() {
   switchView('view-monthly-app'); 
   switchMonthlyTab('tab-dashboard'); 
   
-  // 🌟 修正：不再使用錯誤的函式，直接將 HTML 的條碼按鈕設為選中
-  const barcodeRadio = document.getElementById('type-barcode');
-  if (barcodeRadio) barcodeRadio.checked = true;
+  // 🌟 終極修正：直接抓取 name="actionType" 且值不是 "手動" 的選項 (也就是條碼) 強制打勾
+  document.querySelectorAll('input[name="actionType"]').forEach(radio => {
+    if (radio.value !== '手動') radio.checked = true;
+  });
   updateOnlineUI(); 
   
   const today = new Date();
@@ -312,11 +313,12 @@ export function switchMonthlyTab(tabId) {
   if (tabId === 'tab-records') renderAllRecordLists();
   if (tabId === 'tab-dashboard') renderMonthlyDashboard();
   
-  // 🌟 修正：當切換到「線上作業」時，正確切換到掃描頁面
+  // 🌟 終極修正：當切換到「線上作業」時，強制鎖定為掃描條碼
   if (tabId === 'tab-online') {
-    switchOnlineSubTab('input'); // 確保在大分類的輸入頁
-    const barcodeRadio = document.getElementById('type-barcode');
-    if (barcodeRadio) barcodeRadio.checked = true; // 將條碼選項打勾
+    switchOnlineSubTab('input'); 
+    document.querySelectorAll('input[name="actionType"]').forEach(radio => {
+      if (radio.value !== '手動') radio.checked = true;
+    });
     updateOnlineUI();
   }
 }
