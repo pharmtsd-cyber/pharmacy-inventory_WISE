@@ -3,15 +3,22 @@ import { WEB_APP_URL } from './config.js';
 export function fetchBackend(action, data = {}) {
   return new Promise((resolve, reject) => {
     
-    // 🌟 將 action 一起打包進去，準備送給後端
-    const payload = { action: action, ...data };
+    // 🌟 核心修正：判斷傳入的 data 是什麼格式
+    let payload = { action: action };
+    
+    // 如果傳入的是物件 (例如盤點送出)，就正常合併
+    if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+      payload = { ...payload, ...data };
+    } else {
+      // 🌟 如果傳入的只是單純的字串 (例如登入員編 'F0457')，就自動幫它包裝成 id 標籤
+      payload.id = data;    
+      payload.data = data;  
+    }
 
     fetch(WEB_APP_URL, {
-      method: 'POST',       // 強制使用 POST
-      redirect: 'follow',   // 🌟 關鍵一：Google 內部會轉址，必須允許跟隨
+      method: 'POST',
+      redirect: 'follow', 
       headers: {
-        // 🌟 關鍵二：絕對不能用 'application/json'！
-        // 必須偽裝成一般文字 'text/plain' 繞過 CORS 防火牆，我們寫好的 GAS 會自動把它轉回 JSON
         'Content-Type': 'text/plain;charset=utf-8', 
       },
       body: JSON.stringify(payload)
