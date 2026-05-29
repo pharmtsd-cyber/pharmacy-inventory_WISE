@@ -14,10 +14,12 @@ export let barcodeQtyResolve = null;
 export function initMonthlyMode() {
   switchView('view-monthly-app'); 
   switchMonthlyTab('tab-dashboard'); 
-  updateOnlineUI();
-  switchOnlineTab('掃描');
   
-  // 🌟 這裡就是幫您補上的「日期預設為今天」邏輯
+  // 🌟 修正：不再使用錯誤的函式，直接將 HTML 的條碼按鈕設為選中
+  const barcodeRadio = document.getElementById('type-barcode');
+  if (barcodeRadio) barcodeRadio.checked = true;
+  updateOnlineUI(); 
+  
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const dateInput = document.getElementById('filter-date-records');
@@ -307,12 +309,16 @@ export function switchMonthlyTab(tabId) {
     activeBtn.classList.add('active', 'bg-academic', 'text-white'); 
   }
   
-  // 原本的頁面載入邏輯
   if (tabId === 'tab-records') renderAllRecordLists();
   if (tabId === 'tab-dashboard') renderMonthlyDashboard();
   
-  // 🌟 新增這行：當切換到「線上作業」時，強制預設為「掃描」小分頁
-  if (tabId === 'tab-online') switchOnlineTab('掃描');
+  // 🌟 修正：當切換到「線上作業」時，正確切換到掃描頁面
+  if (tabId === 'tab-online') {
+    switchOnlineSubTab('input'); // 確保在大分類的輸入頁
+    const barcodeRadio = document.getElementById('type-barcode');
+    if (barcodeRadio) barcodeRadio.checked = true; // 將條碼選項打勾
+    updateOnlineUI();
+  }
 }
 
 // 🌟 修正問題 3：明確劃分切換標籤時的渲染邏輯
