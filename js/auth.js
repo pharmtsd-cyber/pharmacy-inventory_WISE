@@ -9,21 +9,25 @@ export function handleLogin() {
   
   toggleLoader(true);
   
-  // 完美打包 { id: "93397" } 送給後端
-  fetchBackend('checkLogin', { id: id }).then(res => {
+fetchBackend('checkLogin', payload).then(res => {
     toggleLoader(false);
     if(res.success) {
-      // 🌟 變數名稱與後端 100% 對齊
-      session.id = res.userId; 
-      session.name = res.userName; 
+      session.id = res.userId || res.id; 
+      session.name = res.userName || res.name; 
       session.isAdmin = res.isAdmin;
-      document.getElementById('nav-info').innerText = res.userName;
       
+      // 🌟 終極防呆：先檢查畫面上有沒有 'nav-info' 這個標籤，有才放名字，沒有就跳過不當機！
+      const navInfoElement = document.getElementById('nav-info');
+      if (navInfoElement) {
+        navInfoElement.innerText = session.name;
+      }
+      
+      // 順利切換到選單畫面
       switchView('view-mode-select'); 
     } else { 
       alert("❌ 登入失敗：" + (res.message || "未知錯誤")); 
     }
-}).catch(err => { 
+  }).catch(err => {
     toggleLoader(false); 
     // 🌟 讓系統說實話！把真正的錯誤訊息印出來
     console.error("登入過程發生錯誤:", err);
