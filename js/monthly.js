@@ -224,6 +224,12 @@ export function submitMonthlyStock() {
   document.getElementById('stock-qty').value = ''; stockSelectedDrug = null; 
   document.getElementById('stock-selected-card').classList.add('d-none'); document.getElementById('stock-drug-search').value = '';
   
+  // 🌟 關鍵新增：送出並清空卡片後，強制將游標拉回「搜尋框」
+  setTimeout(() => {
+    const searchInput = document.getElementById('stock-drug-search');
+    if (searchInput) searchInput.focus();
+  }, 10);
+  
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點庫存', action: '', dispType: '', drugCode: currentDrug.invCode, drugName: currentDrug.name, priceCodeSelect: currentDrug.priceCode, handQty: qty, tableId: 'BFYYY', locCode: '', barcode: '' })
     .then((res) => { 
         if (res && res.success) pushRecordLocally(res.resultRecord); 
@@ -244,14 +250,19 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
   } else { payloadDrug = parsedData; qty = parsedData.qty; barcodeStr = parsedData.barcode; writePriceCode = ''; }
   
   const actionTag = dispType === '調劑' ? '調劑(-)' : '退藥(+)'; 
-  showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, dispType);
+  showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, dispType); 
   
   if (actionSrc === '手動') { 
     document.getElementById('online-qty').value = ''; onlineSelectedDrug = null; document.getElementById('online-selected-card').classList.add('d-none'); document.getElementById('online-drug-search').value=''; 
+    // 🌟 關鍵新增：手動搜尋模式下，送出後將游標拉回「搜尋框」
+    setTimeout(() => {
+      const searchInput = document.getElementById('online-drug-search');
+      if (searchInput) searchInput.focus();
+    }, 10);
   } else { 
     const bcInput = document.getElementById('online-barcode');
     bcInput.value = ''; 
-    // 🌟 延遲 10 毫秒對焦：等綠色卡片畫完之後，才把游標搶回來
+    // 延遲 10 毫秒對焦：等綠色卡片畫完之後，才把游標搶回來
     setTimeout(() => bcInput.focus(), 10); 
   }
 
