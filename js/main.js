@@ -1,4 +1,4 @@
-import { session, DEPT_NAME, DEPT_COLOR } from './config.js';
+import { session, DEPT_NAME, DEPT_COLOR, currentDept } from './config.js';
 import { switchView } from './ui.js';
 import { handleLogin, handleLogout } from './auth.js';
 
