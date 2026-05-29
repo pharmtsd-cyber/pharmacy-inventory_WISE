@@ -10,7 +10,7 @@ body {
 .text-academic { color: var(--academic-primary) !important; }
 .bg-academic { background-color: var(--academic-primary) !important; color: white !important; }
 .btn-academic { background-color: var(--academic-primary); color: white; border: 1px solid var(--academic-primary); }
-.btn-academic:hover { background-color: #14351d; color: white; }
+.btn-academic:hover { filter: brightness(90%); color: white; }
 .btn-outline-academic { color: var(--academic-primary); border-color: var(--academic-primary); background-color: white; }
 .btn-outline-academic:hover { background-color: var(--academic-primary); color: white; }
 .btn-check:checked + .btn-outline-academic { background-color: var(--academic-primary); color: white; border-color: var(--academic-primary); }
