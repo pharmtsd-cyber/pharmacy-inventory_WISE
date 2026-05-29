@@ -31,12 +31,11 @@ export function switchView(viewId) {
   const backBtn = document.getElementById('nav-back-btn');
   const logoutBtn = document.getElementById('nav-logout-btn');
 
-  // 🌟 關鍵修正：改用必定存在的 idEl (工號欄位) 做安全防呆，確保程式絕對不中斷
+  // 🌟 安全防呆，確保程式絕對不中斷
   if (!idEl) return; 
 
-  // 3. 動態路由分流排版引擎 (精準判斷各欄位何時該露臉)
+  // 3. 動態路由分流排版引擎
   if (viewId === 'view-lobby' || viewId === 'view-login') {
-    // 💡 大廳或登入畫面：全隱藏
     idEl.style.display = 'none';
     nameEl.style.display = 'none';
     modeEl.style.display = 'none';
@@ -44,7 +43,6 @@ export function switchView(viewId) {
     logoutBtn.style.display = 'none';
     
   } else if (viewId === 'view-mode-select') {
-    // 💡 登入成功的主選單面：顯示工號、姓名、登出
     idEl.innerText = session.id || '';
     nameEl.innerText = session.name ? `${session.name} 藥師` : '';
     
@@ -56,7 +54,6 @@ export function switchView(viewId) {
     logoutBtn.style.display = 'inline-block'; 
     
   } else {
-    // 💡 特定作業功能內：加秀模式標籤與返回鍵
     idEl.innerText = session.id || '';
     nameEl.innerText = session.name ? `${session.name} 藥師` : '';
     
@@ -108,8 +105,31 @@ export function playBeep() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     osc.connect(ctx.destination);
-    osc.frequency.value = 800;
+    osc.frequency.value = 800; 
     osc.start();
-    osc.stop(ctx.currentTime + 0.1);
+    osc.stop(ctx.currentTime + 0.1); 
   } catch(e) {}
+}
+
+// ==========================================
+// 🌟 螢幕長亮控制 (防止盤點時手機自動休眠)
+// ==========================================
+let wakeLock = null;
+
+export async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (err) {
+    console.warn('Wake Lock error:', err);
+  }
+}
+
+export function releaseWakeLock() {
+  if (wakeLock !== null) {
+    wakeLock.release().then(() => {
+      wakeLock = null;
+    });
+  }
 }
