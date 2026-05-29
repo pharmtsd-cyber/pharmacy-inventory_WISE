@@ -233,7 +233,7 @@ export function submitDrugNote() {
   const noteText = document.getElementById('new-note-text').value.trim();
   if (!noteText) return alert('請輸入註記內容！');
   
-  const payload = { action: 'insert', code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, userName: session.name };
+  const payload = { noteAction: 'insert', code: currentNoteDrugCode, name: currentNoteDrugName, note: noteText, userName: session.name };
   
   // 樂觀更新 UI
   document.getElementById('new-note-text').value = '';
@@ -250,7 +250,7 @@ export function submitDrugNote() {
 
 export function voidDrugNote(sn) {
   if (!confirm('確定要作廢此筆交班事項嗎？')) return;
-  const payload = { action: 'void', sn: sn, userName: session.name };
+  const payload = { noteAction: 'void', sn: sn, userName: session.name };
   
   // 樂觀更新 UI
   const note = drugNotesData.find(n => n.sn === sn);
