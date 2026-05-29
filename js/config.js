@@ -2,10 +2,10 @@
 // ⚙️ 全院多藥局系統 - 核心設定與路由分流
 // ==========================================
 
-// 🌟 1. 自動讀取網址列後方的參數 (例如：?dept=opd)
+// 🌟 1. 自動讀取網址列後方的參數
 const urlParams = new URLSearchParams(window.location.search);
-// 若無參數，預設進入「智能運管組(admin)」的開發測試環境
-const currentDept = urlParams.get('dept') || 'admin'; 
+// 💡 修改：拔除預設 'admin'，讓系統可以停在大廳
+export const currentDept = urlParams.get('dept');
 
 // 🌟 2. 各單位的「GAS 後端網址」對照表
 const BACKEND_MAP = {
@@ -34,9 +34,9 @@ const DEPT_COLOR_MAP = {
   comp: "#4E342E"   // 海軍棕
 };
 
-// 🌟 5. 導出動態變數給全系統元件使用 (若參數亂打，預設導回 admin)
-export const WEB_APP_URL = BACKEND_MAP[currentDept] || BACKEND_MAP['admin'];
-export const DEPT_NAME = DEPT_NAME_MAP[currentDept] || DEPT_NAME_MAP['admin'];
-export const DEPT_COLOR = DEPT_COLOR_MAP[currentDept] || DEPT_COLOR_MAP['admin'];
+// 🌟 5. 導出動態變數給全系統元件使用 (若在大廳無參數，給予空防呆)
+export const WEB_APP_URL = currentDept ? BACKEND_MAP[currentDept] : '';
+export const DEPT_NAME = currentDept ? DEPT_NAME_MAP[currentDept] : '亞東紀念醫院藥學部';
+export const DEPT_COLOR = currentDept ? DEPT_COLOR_MAP[currentDept] : '#495057';
 
 export let session = { id: '', name: '', mode: '', isAdmin: false };
