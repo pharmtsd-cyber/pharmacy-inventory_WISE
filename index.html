@@ -45,53 +45,58 @@
   </div>
 </nav>
 
-<div id="view-lobby" class="view-section" style="background: linear-gradient(135deg, #f6f8fb 0%, #e5ebf0 100%);">
-    <div class="container d-flex flex-column justify-content-center align-items-center h-100 px-3">
+<div id="view-lobby" class="view-section" style="background-color: #f4f6f9; overflow-y: auto;">
+    <div class="container py-4 py-md-5 d-flex flex-column justify-content-center align-items-center min-vh-100 px-3">
       
-      <div class="text-center mb-4">
-        <div class="d-inline-flex justify-content-center align-items-center bg-white rounded-circle shadow-sm mb-3" style="width: 70px; height: 70px;">
+      <div class="text-center mb-4 mb-md-5">
+        <div class="d-inline-flex justify-content-center align-items-center bg-white rounded-circle shadow-sm mb-3 border border-light-subtle" style="width: 75px; height: 75px;">
           <i class="bi bi-hospital fs-1" style="color: #1A365D;"></i>
         </div>
-        <h3 class="fw-bold text-dark mb-1" style="letter-spacing: 2px;">亞東紀念醫院藥學部</h3>
-        <h6 class="text-secondary fw-bold" style="letter-spacing: 1px;">智慧藥局盤點系統</h6>
+        <h2 class="fw-bold text-dark mb-2" style="letter-spacing: 3px; font-family: 'Times New Roman', 'Noto Serif TC', serif;">亞東紀念醫院 藥學部</h2>
+        <div class="text-secondary fw-semibold text-uppercase border-top border-bottom border-secondary-subtle py-1 px-3 d-inline-block" style="letter-spacing: 2px; font-size: 0.75rem;">
+          Pharmacy Inventory Management & Operations Portal
+        </div>
       </div>
 
-      <div class="row g-3 w-100 justify-content-center" style="max-width: 450px;">
+      <div class="row g-3 g-md-4 w-100 justify-content-center" style="max-width: 1000px;">
         
-        <div class="col-6">
-          <div class="card h-100 border-0 shadow-sm text-center p-3 dept-card" onclick="enterPharmacy('opd')" style="border-bottom: 4px solid #1A365D !important;">
-            <i class="bi bi-shop fs-1 mb-2" style="color: #1A365D;"></i>
-            <h6 class="fw-bold mb-0 text-dark">門診藥局</h6>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card h-100 text-center dept-card-academic" onclick="enterPharmacy('opd')" style="border-top: 4px solid #1A365D !important;">
+            <div class="icon-wrapper mb-2 mt-1"><i class="bi bi-shop" style="color: #1A365D;"></i></div>
+            <h5 class="fw-bold text-dark mb-1">門診藥局</h5>
+            <span class="text-muted tracking-wide" style="font-size: 0.75rem; font-family: Arial, sans-serif;">Outpatient Pharmacy</span>
           </div>
         </div>
 
-        <div class="col-6">
-          <div class="card h-100 border-0 shadow-sm text-center p-3 dept-card" onclick="enterPharmacy('ipd')" style="border-bottom: 4px solid #1E4D2B !important;">
-            <i class="bi bi-building fs-1 mb-2" style="color: #1E4D2B;"></i>
-            <h6 class="fw-bold mb-0 text-dark">住院藥局</h6>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card h-100 text-center dept-card-academic" onclick="enterPharmacy('ipd')" style="border-top: 4px solid #1E4D2B !important;">
+            <div class="icon-wrapper mb-2 mt-1"><i class="bi bi-building" style="color: #1E4D2B;"></i></div>
+            <h5 class="fw-bold text-dark mb-1">住院藥局</h5>
+            <span class="text-muted tracking-wide" style="font-size: 0.75rem; font-family: Arial, sans-serif;">Inpatient Pharmacy</span>
           </div>
         </div>
 
-        <div class="col-6">
-          <div class="card h-100 border-0 shadow-sm text-center p-3 dept-card" onclick="enterPharmacy('erd')" style="border-bottom: 4px solid #7A1717 !important;">
-            <i class="bi bi-heart-pulse fs-1 mb-2" style="color: #7A1717;"></i>
-            <h6 class="fw-bold mb-0 text-dark">急診藥局</h6>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card h-100 text-center dept-card-academic" onclick="enterPharmacy('erd')" style="border-top: 4px solid #7A1717 !important;">
+            <div class="icon-wrapper mb-2 mt-1"><i class="bi bi-heart-pulse" style="color: #7A1717;"></i></div>
+            <h5 class="fw-bold text-dark mb-1">急診藥局</h5>
+            <span class="text-muted tracking-wide" style="font-size: 0.75rem; font-family: Arial, sans-serif;">Emergency Pharmacy</span>
           </div>
         </div>
 
-        <div class="col-6">
-          <div class="card h-100 border-0 shadow-sm text-center p-3 dept-card" onclick="enterPharmacy('comp')" style="border-bottom: 4px solid #4E342E !important;">
-            <i class="bi bi-capsule fs-1 mb-2" style="color: #4E342E;"></i>
-            <h6 class="fw-bold mb-0 text-dark">調配藥局</h6>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card h-100 text-center dept-card-academic" onclick="enterPharmacy('comp')" style="border-top: 4px solid #4E342E !important;">
+            <div class="icon-wrapper mb-2 mt-1"><i class="bi bi-capsule" style="color: #4E342E;"></i></div>
+            <h5 class="fw-bold text-dark mb-1">調配藥局</h5>
+            <span class="text-muted tracking-wide" style="font-size: 0.75rem; font-family: Arial, sans-serif;">Compounding Pharmacy</span>
           </div>
         </div>
 
-        <div class="col-12 mt-2">
-          <div class="card h-100 border-0 shadow-sm text-center p-3 dept-card" onclick="enterPharmacy('admin')" style="border-bottom: 4px solid #495057 !important;">
-            <div class="d-flex justify-content-center align-items-center gap-2">
-              <i class="bi bi-cpu fs-3" style="color: #495057;"></i>
-              <h6 class="fw-bold mb-0 text-dark">智能運管組 (後台維護)</h6>
-            </div>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card h-100 text-center dept-card-academic" onclick="enterPharmacy('admin')" style="border-top: 4px solid #495057 !important;">
+            <div class="icon-wrapper mb-2 mt-1"><i class="bi bi-cpu" style="color: #495057;"></i></div>
+            <h5 class="fw-bold text-dark mb-1">智能運管組</h5>
+            <span class="text-muted tracking-wide" style="font-size: 0.75rem; font-family: Arial, sans-serif;">Operations & Intelligence</span>
           </div>
         </div>
 
