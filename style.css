@@ -29,19 +29,53 @@ body {
 .drag-handle { cursor: grab; font-size: 1.8rem; color: #adb5bd; padding: 10px; touch-action: none; }
 .sortable-ghost { opacity: 0.4; background-color: #e2e8f0 !important; }
 
-/* 🌟 大廳卡片專屬互動效果 */
-.dept-card {
+/* ==========================================
+   🏛️ 亞東藥學部 - 頂級學術風大廳響應式樣式
+   ========================================== */
+.dept-card-academic {
   cursor: pointer;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s;
   background-color: #ffffff;
-  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius: 6px !important; /* 微直角設計，比過度圓潤更顯醫學嚴謹 */
+  padding: 1.5rem !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
 }
-.dept-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
-  background-color: #f8f9fa;
+
+/* 圖示基礎大小 (手機端) */
+.dept-card-academic .icon-wrapper i {
+  font-size: 2.2rem;
+  transition: transform 0.2s ease;
+  display: inline-block;
 }
-.dept-card:active {
-  transform: translateY(2px);
-  box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important;
+
+/* 🖥️ 核心關鍵：當螢幕在寬廣的桌面端 (min-width: 768px) 時自動放大增強大器感 */
+@media (min-width: 768px) {
+  .dept-card-academic {
+    padding: 2.8rem 1.5rem !important; /* 桌面端大幅增加內部留白，凸顯高級感 */
+  }
+  .dept-card-academic h5 {
+    font-size: 1.3rem !important;
+    margin-bottom: 6px !important;
+  }
+  .dept-card-academic .icon-wrapper i {
+    font-size: 2.8rem; /* 桌面端圖示顯著放大 */
+  }
+}
+
+/* 🌟 高雅的懸浮與點擊動態回饋 (拒絕刺眼大色塊，改用沉穩優雅的浮雕投影) */
+.dept-card-academic:hover {
+  transform: translateY(-6px);
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 12px 24px -6px rgba(26, 54, 93, 0.08) !important; /* 帶有極淡皇家藍的高雅陰影 */
+  background-color: #ffffff;
+}
+
+.dept-card-academic:hover .icon-wrapper i {
+  transform: scale(1.06); /* 圖示高質感微縮放 */
+}
+
+.dept-card-academic:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.05) !important;
 }
