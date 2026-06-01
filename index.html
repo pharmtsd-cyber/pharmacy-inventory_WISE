@@ -16,32 +16,30 @@
   <div id="loader" class="loading-overlay"><div class="spinner-border text-academic mb-2"></div><div class="fw-bold text-academic">系統處理中...</div></div>
   <div id="toast-container"></div>
 
-<nav class="navbar navbar-dark navbar-academic fixed-top shadow-sm px-1 px-md-3" style="height: 60px;">
-  <div class="container-fluid px-1 d-flex flex-nowrap align-items-center justify-content-between h-100">
+<nav class="navbar navbar-dark navbar-academic fixed-top shadow-sm px-2 px-md-3 py-2">
+  <div class="container-fluid px-0 d-flex flex-column align-items-start w-100">
     
-    <div class="d-flex align-items-center gap-1 gap-sm-2" style="min-width: 0; flex-grow: 1;">
-      
-      <span class="navbar-brand mb-0 fw-bold text-white text-truncate flex-shrink-0" style="max-width: 150px; font-size: 0.9rem; margin-right: 4px;">
-        <i class="bi bi-hospital me-1"></i>FEMH藥學部盤點APP
-      </span>
-      
-      <span id="nav-user-id" class="badge bg-light text-dark opacity-75 flex-shrink-0" style="display: none; font-size: 0.75rem;"></span>
-      
-      <span id="nav-user-name" class="fw-bold text-white text-truncate flex-shrink-0" style="max-width: 80px; display: none; font-size: 0.8rem;"></span>
-      
-      <span id="nav-mode-name" class="badge bg-warning text-dark fw-bold flex-shrink-0" style="display: none; font-size: 0.75rem;"></span>
-      
-      <button id="nav-back-btn" class="btn btn-sm btn-light text-dark fw-bold flex-shrink-0 shadow-sm py-0 px-2" style="display: none; height: 26px; font-size: 0.75rem;" onclick="backToModeSelect()">
-        <i class="bi bi-arrow-left"></i> 返回
-      </button>
-
-      <span id="nav-info" class="d-none"></span>
+    <div class="d-flex justify-content-between align-items-center w-100 mb-1">
+      <div class="d-flex align-items-center gap-2" style="min-width: 0;">
+        <span class="navbar-brand mb-0 fw-bold text-white text-truncate flex-shrink-0" style="max-width: 180px; font-size: 1rem;">
+          <i class="bi bi-hospital me-1"></i>FEMH藥學部盤點APP
+        </span>
+        <button id="nav-back-btn" class="btn btn-sm btn-light text-dark fw-bold flex-shrink-0 shadow-sm py-0 px-2" style="display: none; height: 26px; font-size: 0.8rem;" onclick="backToModeSelect()">
+          <i class="bi bi-arrow-left"></i> 返回
+        </button>
+        <span id="nav-info" class="d-none"></span>
+      </div>
+      <div class="ms-1 flex-shrink-0">
+        <button class="btn btn-sm btn-outline-light fw-bold shadow-sm" id="nav-logout-btn" onclick="handleLogout()" style="display: none; font-size: 0.8rem; padding: 2px 8px;">登出</button>
+      </div>
     </div>
 
-    <div class="ms-1 flex-shrink-0">
-      <button class="btn btn-sm btn-outline-light fw-bold shadow-sm" id="nav-logout-btn" onclick="handleLogout()" style="display: none; font-size: 0.8rem; padding: 2px 8px;">登出</button>
+    <div class="d-flex align-items-center gap-2 w-100" style="min-height: 24px;">
+      <span id="nav-user-id" class="badge bg-light text-dark opacity-75 flex-shrink-0" style="display: none; font-size: 0.8rem;"></span>
+      <span id="nav-user-name" class="fw-bold text-white text-truncate flex-shrink-0" style="max-width: 120px; display: none; font-size: 0.85rem;"></span>
+      <span id="nav-mode-name" class="badge bg-warning text-dark fw-bold flex-shrink-0" style="display: none; font-size: 0.8rem;"></span>
     </div>
-    
+
   </div>
 </nav>
 
@@ -117,20 +115,27 @@
   <div id="view-mode-select" class="container view-section">
     <div class="card card-academic p-4 mt-4 text-center bg-white shadow">
       <h5 class="mb-4 text-academic fw-bold">請選擇作業模式</h5>
-      <button class="btn btn-outline-academic btn-lg w-100 py-3 mb-3 fw-bold shadow-sm" onclick="selectMode('每日盤點')"><i class="bi bi-calendar-check fs-3 d-block mb-1"></i> 每日盤點作業</button>
-      <button class="btn btn-outline-academic btn-lg w-100 py-3 mb-3 fw-bold shadow-sm" onclick="selectMode('月盤點')"><i class="bi bi-calendar-month fs-3 d-block mb-1"></i> 月盤點作業</button>
-    </div>
-  </div>
-  <div class="col-12 mt-3">
-    <button class="btn btn-outline-secondary btn-lg w-100 shadow-sm" style="border-width: 2px; border-radius: 12px; background-color: #f8f9fa;" onclick="window.open('請在這裡貼上您的網路連結', '_blank')">
-      <div class="d-flex align-items-center justify-content-center py-2">
-        <i class="bi bi-table fs-1 me-3 text-secondary"></i>
-        <div class="text-start">
-          <h5 class="fw-bold mb-0 text-dark">盤點表維護</h5>
-          <span class="small text-muted" style="font-size: 0.8rem;">管理系統基礎資料庫</span>
+      
+      <button class="btn btn-outline-academic btn-lg w-100 py-3 mb-3 fw-bold shadow-sm" onclick="selectMode('每日盤點')">
+        <i class="bi bi-calendar-check fs-3 d-block mb-1"></i> 每日盤點作業
+      </button>
+      <button class="btn btn-outline-academic btn-lg w-100 py-3 mb-3 fw-bold shadow-sm" onclick="selectMode('月盤點')">
+        <i class="bi bi-calendar-month fs-3 d-block mb-1"></i> 月盤點作業
+      </button>
+      
+      <hr class="text-secondary opacity-25 my-3">
+      
+      <button class="btn btn-outline-secondary btn-lg w-100 shadow-sm" style="border-width: 2px; border-radius: 12px; background-color: #f8f9fa;" onclick="window.open('請在這裡貼上您的網路連結', '_blank')">
+        <div class="d-flex align-items-center justify-content-center py-2">
+          <i class="bi bi-table fs-1 me-3 text-secondary"></i>
+          <div class="text-start">
+            <h5 class="fw-bold mb-0 text-dark">盤點表維護</h5>
+            <span class="small text-muted" style="font-size: 0.8rem;">管理系統基礎資料庫</span>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+
+    </div>
   </div>
 
   <div id="view-daily-app" class="container-fluid view-section">
