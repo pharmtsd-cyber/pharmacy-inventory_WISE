@@ -1,4 +1,4 @@
-import { session, DEPT_NAME, DEPT_COLOR, currentDept } from './config.js';
+import { session, DEPT_NAME, DEPT_COLOR, currentDept, MAINTENANCE_LINK_MAP } from './config.js';
 import { switchView } from './ui.js';
 import { handleLogin, handleLogout } from './auth.js';
 
@@ -50,6 +50,16 @@ window.enterPharmacy = function(deptCode) {
 // 🌟 返回模式選擇 (每日/月盤點)
 window.backToModeSelect = function() {
   switchView('view-mode-select');
+};
+
+// 🌟 🚀 新增：動態開啟盤點表維護連結
+window.openMaintenanceLink = function() {
+  const link = MAINTENANCE_LINK_MAP[currentDept];
+  if (link) {
+    window.open(link, '_blank'); // 開啟對應藥局的連結
+  } else {
+    alert('尚未設定此單位的盤點表維護連結！');
+  }
 };
 
 window.switchView = switchView;
