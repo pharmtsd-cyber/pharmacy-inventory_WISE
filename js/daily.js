@@ -183,12 +183,31 @@ export function submitDailyOne(loc, dCode, dName, tId) {
     .catch(err => { showToast('網路連線錯誤，請重新盤點', 'delete'); loadDailyData(dStr); });
 }
 
-export function editDailyQty(locCode, currentQty) {
-  const newQty = prompt("請輸入修改數量:", currentQty);
-  if (newQty === null || newQty === "") return;
-  const dateStr = document.getElementById('header-date-select').value;
-  
+// ==========================================
+// 🌟 升級版每日盤點修改數量
+// ==========================================
+export async function editDailyQty(locCode, currentQty) {
   const item = dailyItems.find(i => i.locCode === locCode);
+  if (!item) return;
+
+  // 呼叫自訂彈窗並等待藥師輸入 (取代原本的 prompt)
+  const newQty = await new Promise(resolve => {
+    window.resolveEditQtyModal = resolve;
+    document.getElementById('edit-qty-drug-name').innerText = item.drugName;
+    document.getElementById('edit-qty-old').innerText = currentQty;
+    const input = document.getElementById('edit-qty-input');
+    input.value = currentQty;
+    new window.bootstrap.Modal(document.getElementById('editQtyModal')).show();
+    
+    // 彈窗開啟後自動選取數字，方便直接覆蓋輸入
+    document.getElementById('editQtyModal').addEventListener('shown.bs.modal', () => { 
+      input.focus(); input.select(); 
+    }, { once: true });
+  });
+
+  if (newQty === null || newQty === "") return; // 藥師按了取消
+  
+  const dateStr = document.getElementById('header-date-select').value;
   const oldQty = item.countedQty;
   item.countedQty = newQty; 
   renderDailyItems();
@@ -200,10 +219,25 @@ export function editDailyQty(locCode, currentQty) {
     }).catch(err => { item.countedQty = oldQty; renderDailyItems(); showToast('網路異常，更新失敗', 'delete'); });
 }
 
-export function toggleDailyStatus(locCode, newStatus) {
-  if (newStatus === '作廢' && !confirm('確定要作廢這筆紀錄嗎？')) return;
-  const dateStr = document.getElementById('header-date-select').value;
+// ==========================================
+// 🌟 升級版每日盤點作廢功能
+// ==========================================
+export async function toggleDailyStatus(locCode, newStatus) {
   const item = dailyItems.find(i => i.locCode === locCode);
+  if (!item) return;
+
+  if (newStatus === '作廢') {
+    // 呼叫防呆作廢彈窗並等待確認 (取代原本的 confirm)
+    const isConfirmed = await new Promise(resolve => {
+      window.resolveVoidModal = resolve;
+      document.getElementById('void-drug-name').innerText = item.drugName;
+      document.getElementById('void-drug-info').innerText = item.countedQty;
+      new window.bootstrap.Modal(document.getElementById('voidConfirmModal')).show();
+    });
+    if (!isConfirmed) return; // 藥師按了取消
+  }
+
+  const dateStr = document.getElementById('header-date-select').value;
   const oldStatus = item.status;
   item.status = newStatus;
   updateTabUI(); renderDailyItems();
@@ -350,3 +384,28 @@ export function saveAdminDataToServer() {
     alert('⚠️ 儲存時連線發生異常：' + err.message);
   });
 }
+
+// ==========================================
+// 🌟 彈窗全域控制方法 (給 index.html 的按鈕呼叫)
+// ==========================================
+window.resolveEditQtyModal = window.resolveEditQtyModal || null;
+window.resolveVoidModal = window.resolveVoidModal || null;
+
+window.confirmEditQty = () => {
+  const val = document.getElementById('edit-qty-input').value;
+  if (val === '') return alert('請輸入數量');
+  window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide();
+  if(window.resolveEditQtyModal) window.resolveEditQtyModal(val);
+};
+window.cancelEditQty = () => {
+  window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide();
+  if(window.resolveEditQtyModal) window.resolveEditQtyModal(null);
+};
+window.confirmVoid = () => {
+  window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide();
+  if(window.resolveVoidModal) window.resolveVoidModal(true);
+};
+window.cancelVoid = () => {
+  window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide();
+  if(window.resolveVoidModal) window.resolveVoidModal(false);
+};
