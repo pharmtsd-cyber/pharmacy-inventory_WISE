@@ -569,10 +569,27 @@ document.addEventListener('click', function(e) {
   }
 });
 
-export function editRecord(sn) {
+// ==========================================
+// 🌟 升級版月盤點紀錄修改數量
+// ==========================================
+export async function editRecord(sn) {
   const record = myRecordsData.find(r => r.sn === sn);
   if (!record) return;
-  const newQty = prompt(`修改 [${record.name}] 數量:`, record.handQty);
+  
+  // 呼叫自訂彈窗並等待藥師輸入
+  const newQty = await new Promise(resolve => {
+    window.resolveEditQtyModal = resolve;
+    document.getElementById('edit-qty-drug-name').innerText = record.name;
+    document.getElementById('edit-qty-old').innerText = record.handQty;
+    const input = document.getElementById('edit-qty-input');
+    input.value = record.handQty;
+    new window.bootstrap.Modal(document.getElementById('editQtyModal')).show();
+    
+    document.getElementById('editQtyModal').addEventListener('shown.bs.modal', () => { 
+      input.focus(); input.select(); 
+    }, { once: true });
+  });
+
   if (newQty === null || newQty === "") return;
   
   const oldQty = record.handQty;
@@ -591,10 +608,23 @@ export function editRecord(sn) {
     }).catch(err => { record.handQty = oldQty; renderAllRecordLists(); renderMonthlyDesk(); showToast('網路連線異常，更新失敗', 'delete'); });
 }
 
-export function toggleMonthlyRecordStatus(sn, newStatus) {
-  if (newStatus === '作廢' && !confirm('確定要作廢此筆紀錄嗎？')) return;
+// ==========================================
+// 🌟 升級版月盤點紀錄作廢
+// ==========================================
+export async function toggleMonthlyRecordStatus(sn, newStatus) {
   const record = myRecordsData.find(r => r.sn === sn);
   if (!record) return;
+
+  if (newStatus === '作廢') {
+    // 呼叫防呆作廢彈窗並等待確認
+    const isConfirmed = await new Promise(resolve => {
+      window.resolveVoidModal = resolve;
+      document.getElementById('void-drug-name').innerText = record.name;
+      document.getElementById('void-drug-info').innerText = record.handQty;
+      new window.bootstrap.Modal(document.getElementById('voidConfirmModal')).show();
+    });
+    if (!isConfirmed) return;
+  }
 
   const oldStatus = record.status;
   record.status = newStatus;
