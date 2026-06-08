@@ -39,6 +39,10 @@ export function loadDailyData(dateStr) {
     }
     updateTabUI(); 
     renderDailyItems(); 
+    
+    // 👇 請在 renderDailyItems() 的下方加上這一行 👇
+    checkAdminNewDrugs();
+
   }).catch(err => { 
     toggleLoader(false); 
     document.getElementById('daily-list-area').innerHTML = '<div class="text-center p-5 text-muted fw-bold">無資料或讀取失敗</div>'; 
@@ -409,3 +413,28 @@ window.cancelVoid = () => {
   window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide();
   if(window.resolveVoidModal) window.resolveVoidModal(false);
 };
+
+// 🌟 檢查是否有尚未排序的新進藥品 (給按鈕上的 New Badge 使用)
+export function checkAdminNewDrugs() {
+  // 不使用 toggleLoader，讓它在背景默默抓取，不干擾藥師操作
+  fetchBackend('getAdminData').then(data => {
+    if (data && data.success !== false) {
+      // 判斷條件：只要在 SAP 清單 (selectable) 中，但還沒出現在存檔紀錄 (saved) 中，就是新藥品
+      const hasNew = (data.selectable || []).some(item => {
+        const savedItem = (data.saved || []).find(s => s.locCode === item.locCode);
+        return !savedItem; 
+      });
+
+      const badge = document.getElementById('admin-new-badge');
+      if (badge) {
+        if (hasNew) {
+          badge.classList.remove('d-none');
+        } else {
+          badge.classList.add('d-none');
+        }
+      }
+    }
+  }).catch(err => {
+    console.warn('背景檢查排序新藥品狀態失敗:', err);
+  });
+}
