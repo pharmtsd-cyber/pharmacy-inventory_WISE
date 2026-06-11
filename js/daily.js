@@ -108,7 +108,19 @@ export function renderDailyItems() {
     // 🌟 顏色分流邏輯：偶數用藥局綠 (Default)，奇數用灰色 (Gray)
     const borderColor = index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd';
 
-    if (currentDailyTab === '未盤') {
+if (currentDailyTab === '未盤') {
+      
+      // 🚀 動態生成每日盤點的專屬提示區塊 (有資料才顯示，沒資料保持乾淨)
+      let hintHtml = '';
+      // I 欄：每日盤點注意事項 (對應後端的 infoNotice)
+      if (item.infoNotice && item.infoNotice !== '') {
+        hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點注意：${item.infoNotice}</div>`;
+      }
+      // H 欄：藥品備註 (對應後端的 infoMemo)
+      if (item.infoMemo && item.infoMemo !== '') {
+        hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.infoMemo}</div>`;
+      }
+
       const lastRecordHtml = item.lastQty !== '無'
         ? `<div class="bg-light border rounded p-2 mb-2 d-flex justify-content-between align-items-center shadow-sm">
              <span class="text-secondary small fw-bold"><i class="bi bi-clock-history"></i> 前次紀錄 (${item.lastTime}):</span>
@@ -125,6 +137,8 @@ export function renderDailyItems() {
               <span class="badge bg-academic shadow-sm">${item.tableName}</span>
               <span class="badge bg-white text-dark border border-secondary shadow-sm">儲位: ${item.locCode}</span>
             </div>
+            
+            ${hintHtml ? `<div class="bg-light rounded p-2 mb-2 border border-danger border-opacity-25">${hintHtml}</div>` : ''}
             
             ${lastRecordHtml}
             
