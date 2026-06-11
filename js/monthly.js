@@ -388,11 +388,20 @@ export function renderMonthlyDesk() {
   tableData.items.forEach(item => { if (!uniqueDrugs.includes(item.drugCode)) uniqueDrugs.push(item.drugCode); }); 
   const getDrugColor = (code) => { const index = uniqueDrugs.indexOf(code); return index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd'; }; 
   
-let html = ''; 
+  let html = ''; 
   uncountedItems.forEach(item => { 
     const borderColor = getDrugColor(item.drugCode); 
     const safeName = item.drugName.replace(/'/g, "\\'"); // 處理藥名有單引號的問題
     
+    // 🚀 動態生成學術提示區塊 (有資料才顯示，沒資料保持乾淨)
+    let hintHtml = '';
+    if (item.desc && item.desc !== '') {
+      hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點說明：${item.desc}</div>`;
+    }
+    if (item.remark && item.remark !== '') {
+      hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.remark}</div>`;
+    }
+
     html += `<div class="card drug-card mb-3 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
       <div class="card-body p-3">
         <div class="fw-bold fs-5 text-dark mb-2">${item.drugName}</div>
@@ -400,6 +409,9 @@ let html = '';
           <span class="badge bg-light text-dark border border-secondary">儲位: ${item.locCode}</span>
           <span class="badge bg-light text-dark border border-secondary">代碼: ${item.drugCode}</span>
         </div>
+        
+        ${hintHtml ? `<div class="bg-light rounded p-2 mb-2 border border-light-subtle">${hintHtml}</div>` : ''}
+
         <div class="input-group shadow-sm">
           <input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value="">
           
