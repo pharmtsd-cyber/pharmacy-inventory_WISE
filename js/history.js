@@ -96,11 +96,14 @@ export function renderDateBadges() {
 
 function updateAvailableDrugs() { availableDrugs = Object.keys(pivotData).map(code => ({ code: code, name: pivotData[code].name })); }
 
-// 🌟 完美修復斑馬紋、閱讀尺，以及藥品名稱截斷問題
+// 🌟 完美修復斑馬紋、閱讀尺，以及藥品名稱截斷問題 (升級加入：雙零隱藏篩選器)
 export function renderHistoryTable() {
   const thead = document.getElementById('history-thead');
   const tbody = document.getElementById('history-tbody'); 
   if (selectedDates.length === 0) { thead.innerHTML = ''; tbody.innerHTML = `<tr><td class="text-center py-5 text-muted fw-bold">請於上方加入日期以開始比較</td></tr>`; return; }
+
+  // 🌟 1. 取得下拉選單目前的設定 (預設為 hide_zero)
+  const zeroFilter = document.getElementById('history-zero-filter') ? document.getElementById('history-zero-filter').value : 'hide_zero';
 
   let headHtml = `<tr>
     <th class="text-center text-nowrap align-middle bg-academic text-white border-end" style="min-width: 90px; position: sticky; left: 0; z-index: 11;">代碼</th>
@@ -115,11 +118,31 @@ export function renderHistoryTable() {
   if (drugs.length === 0) { tbody.innerHTML = `<tr><td colspan="${selectedDates.length + 2}" class="text-center py-5 text-muted fw-bold">此區間查無盤點紀錄</td></tr>`; return; }
 
   let bodyHtml = '';
-  drugs.forEach((code, index) => {
+  // 注意：這裡移除了原本直接用 index % 2 算顏色的方式，改用獨立的變數來計算，確保隱藏列後斑馬紋依然交錯正確
+  let visibleRowIndex = 0; 
+
+  drugs.forEach((code) => {
+    // 🌟 2. 核心過濾防線：檢查這顆藥在「所有選取日期」中，是否 SAP 和盤點量都是 0
+    let isAllZero = true;
+    selectedDates.forEach(d => {
+      const record = pivotData[code].history[d];
+      // 只要有任何一天的 SAP 或實際盤點量不是 0，就標記為 false (代表它有資料，不能藏)
+      if (record && (record.sap !== 0 || record.act !== 0)) {
+        isAllZero = false;
+      }
+    });
+
+    // 如果選擇隱藏雙零，而且這顆藥真的是全零，就直接跳過不畫出來！
+    if (zeroFilter === 'hide_zero' && isAllZero) {
+        return; 
+    }
+
     const drugName = pivotData[code].name;
-    const rowBg = index % 2 === 0 ? '#ffffff' : '#f1f3f5';
+    // 🌟 重新計算斑馬紋顏色，只算有顯示出來的列
+    const rowBg = visibleRowIndex % 2 === 0 ? '#ffffff' : '#f1f3f5';
+    visibleRowIndex++; 
     
-    // 🌟 檢查交班註記
+    // 檢查交班註記
     const hasActiveNote = drugNotesData.some(n => n.code === code && n.status === '成立');
     const noteIcon = hasActiveNote 
       ? `<i class="bi bi-chat-text-fill text-warning fs-5" style="cursor:pointer;" title="點擊查看交班註記" onclick="event.stopPropagation(); openNoteModal('${code}', '${drugName}')"></i>` 
@@ -129,7 +152,6 @@ export function renderHistoryTable() {
       
       <td class="text-center text-secondary fw-bold align-middle border-end" style="position: sticky; left: 0; z-index: 2; background-color: ${rowBg};">${code}</td>
       
-      <!-- 🌟 關鍵修改：使用 Flexbox 讓圖示排在最前面，且允許藥品名稱自然換行不斷字 -->
       <td class="text-start align-middle border-end border-2 p-2" style="position: sticky; left: 90px; z-index: 2; background-color: ${rowBg}; min-width: 170px;">
         <div class="d-flex align-items-center gap-2">
           <div>${noteIcon}</div>
