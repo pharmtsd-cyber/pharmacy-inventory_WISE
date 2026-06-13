@@ -70,7 +70,7 @@ export function updateTabUI() {
   document.getElementById('count-counted').innerText = dailyItems.filter(i => i.hasRecord).length;
 }
 
-// 🌟 渲染每日盤點清單 (實作顏色交錯設計)
+// 🌟 渲染每日盤點清單 (實作顏色交錯設計 + 終極防禦升級)
 export function renderDailyItems() {
   const area = document.getElementById('daily-list-area');
   if (!area) return;
@@ -103,12 +103,14 @@ export function renderDailyItems() {
   let html = '';
   // 🌟 關鍵修改：傳入 index 以便計算交錯顏色
   filtered.forEach((item, index) => {
-    const safeName = item.drugName.replace(/'/g, "\\'"); 
+    
+    // 🚀 一勞永逸的終極防禦：將藥名轉為純英數 Base64 密碼，徹底絕緣所有特殊符號
+    const encodedName = btoa(encodeURIComponent(item.drugName || '')); 
     
     // 🌟 顏色分流邏輯：偶數用藥局綠 (Default)，奇數用灰色 (Gray)
     const borderColor = index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd';
 
-if (currentDailyTab === '未盤') {
+    if (currentDailyTab === '未盤') {
       
       // 🚀 動態生成每日盤點的專屬提示區塊 (有資料才顯示，沒資料保持乾淨)
       let hintHtml = '';
@@ -144,9 +146,10 @@ if (currentDailyTab === '未盤') {
             
             <div class="input-group shadow-sm mt-2">
               <input type="number" id="qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="本次數量" inputmode="numeric" pattern="[0-9]*">
-              <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('qty-${item.locCode}', '${safeName}')"><i class="bi bi-calculator fs-5"></i></button>
               
-              <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitDailyOne('${item.locCode}', '${item.drugCode}', '${safeName}', '${item.tableId}')">確認送出</button>
+              <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('qty-${item.locCode}', decodeURIComponent(atob('${encodedName}')))"><i class="bi bi-calculator fs-5"></i></button>
+              
+              <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitDailyOne('${item.locCode}', '${item.drugCode}', decodeURIComponent(atob('${encodedName}')), '${item.tableId}')">確認送出</button>
             </div>
           </div>
         </div>`;
