@@ -316,13 +316,26 @@ export function pushRecordLocally(recInfo) {
 export function updateOnlineUI() { 
   const checkedInput = document.querySelector('input[name="actionType"]:checked');
   if (!checkedInput) return;
+  
   if (checkedInput.value === '手動') {
-    const areaManual = document.getElementById('area-manual'); const areaBarcode = document.getElementById('area-barcode');
-    if (areaManual) areaManual.classList.remove('d-none'); if (areaBarcode) areaBarcode.classList.add('d-none');
+    const areaManual = document.getElementById('area-manual'); 
+    const areaBarcode = document.getElementById('area-barcode');
+    if (areaManual) areaManual.classList.remove('d-none'); 
+    if (areaBarcode) areaBarcode.classList.add('d-none');
+    
+    // 🌟 新增：切換到手動搜尋時，游標自動跳到搜尋框
+    const searchInput = document.getElementById('online-drug-search');
+    if (searchInput) setTimeout(() => searchInput.focus(), 10);
+    
   } else {
-    const areaManual = document.getElementById('area-manual'); const areaBarcode = document.getElementById('area-barcode');
-    if (areaManual) areaManual.classList.add('d-none'); if (areaBarcode) areaBarcode.classList.remove('d-none');
-    const barcodeInput = document.getElementById('online-barcode'); if (barcodeInput) barcodeInput.focus();
+    const areaManual = document.getElementById('area-manual'); 
+    const areaBarcode = document.getElementById('area-barcode');
+    if (areaManual) areaManual.classList.add('d-none'); 
+    if (areaBarcode) areaBarcode.classList.remove('d-none');
+    
+    // 🌟 順便用 setTimeout 保護條碼框的 Focus，避免畫面渲染太快導致焦點遺失
+    const barcodeInput = document.getElementById('online-barcode'); 
+    if (barcodeInput) setTimeout(() => barcodeInput.focus(), 10);
   }
 }
 
