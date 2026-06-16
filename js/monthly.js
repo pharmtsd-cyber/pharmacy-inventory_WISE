@@ -743,12 +743,20 @@ export function renderMonthlyDashboard() {
     const percent = total > 0 ? Math.round((counted / total) * 100) : 0;
     const isComplete = percent === 100;
     
+    // 🌟 新增：動態生成「盤點表說明」區塊 (假設後端傳來的變數名為 desc，有值才顯示)
+    const tableDesc = table.desc ? `<div class="text-secondary small mt-1" style="font-size: 0.85rem;"><i class="bi bi-info-square me-1"></i>${table.desc}</div>` : '';
+
     const cardHtml = `
       <div class="card mb-3 shadow-sm border-0 border-start border-4 ${isComplete ? 'border-success' : 'border-warning'}" 
            onclick="enterTableInventory('${table.id}', '${table.name}')" style="cursor: pointer;">
         <div class="card-body p-3">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <div class="fw-bold text-dark fs-5">${table.name}</div>
+            
+            <div>
+              <div class="fw-bold text-dark fs-5">${table.name}</div>
+              ${tableDesc}
+            </div>
+            
             <span class="badge ${isComplete ? 'bg-success' : 'bg-academic'}">${percent}%</span>
           </div>
           <div class="progress mb-2" style="height: 12px;">
