@@ -743,8 +743,11 @@ export function renderMonthlyDashboard() {
     const percent = total > 0 ? Math.round((counted / total) * 100) : 0;
     const isComplete = percent === 100;
     
-    // 🌟 新增：動態生成「盤點表說明」區塊 (假設後端傳來的變數名為 desc，有值才顯示)
-    const tableDesc = table.desc ? `<div class="text-secondary small mt-1" style="font-size: 0.85rem;"><i class="bi bi-info-square me-1"></i>${table.desc}</div>` : '';
+  // 🌟 升級版：加上黃色底色、左側粗邊框與粗體字的醒目提示
+  const tableDesc = table.desc ? `
+    <div class="mt-2 px-2 py-1 rounded text-dark fw-bold shadow-sm" style="background-color: #fff3cd; border-left: 4px solid #ffc107; font-size: 0.85rem;">
+      <i class="bi bi-exclamation-circle-fill text-warning me-1" style="font-size: 1rem;"></i>${table.desc}
+    </div>` : '';
 
     const cardHtml = `
       <div class="card mb-3 shadow-sm border-0 border-start border-4 ${isComplete ? 'border-success' : 'border-warning'}" 
