@@ -198,20 +198,6 @@ export async function parseBarcodeAndSubmit() { // 🌟 注意這裡變成了 as
   
   submitMonthlyOnline('條碼', { priceCode: parsedDrug.priceCode, invCode: parsedDrug.invCode, name: parsedDrug.name, qty: qty, barcode: bcStr }, '');
 }
-  } else { 
-    // ... 原本的非分號解析邏輯保持不變 ...
-  }
-  
-  // 檢查藥品是否存在 (同原邏輯)
-  if (!parsedDrug) { 
-    alert(`❌ 系統查無此藥品！`); 
-    bcInput.value = ''; 
-    setTimeout(() => bcInput.focus(), 10);
-    return; 
-  }
-  
-  submitMonthlyOnline('條碼', { priceCode: parsedDrug.priceCode, invCode: parsedDrug.invCode, name: parsedDrug.name, qty: qty, barcode: bcStr }, '');
-}
 
 export function showSuccessCard(cardId, drugName, qty, actionTag, colorType = 'success') {
   const card = document.getElementById(cardId); 
