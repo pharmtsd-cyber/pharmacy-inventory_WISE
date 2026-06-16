@@ -20,6 +20,27 @@ export function initMonthlyMode() {
     if (radio.value !== '手動') radio.checked = true;
   });
   updateOnlineUI(); 
+
+  // 🌟 終極修正：直接抓取 name="actionType" 且值不是 "手動" 的選項 (也就是條碼) 強制打勾
+  document.querySelectorAll('input[name="actionType"]').forEach(radio => {
+    if (radio.value !== '手動') radio.checked = true;
+  });
+  updateOnlineUI(); 
+  
+  // 👇 🌟 在這裡新增：監聽「調劑/退藥」切換事件，自動將游標定位 👇
+  document.querySelectorAll('input[name="dispType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const actionType = document.querySelector('input[name="actionType"]:checked');
+      if (actionType && actionType.value === '手動') {
+        const searchInput = document.getElementById('online-drug-search');
+        if (searchInput) setTimeout(() => searchInput.focus(), 10);
+      } else {
+        const bcInput = document.getElementById('online-barcode');
+        if (bcInput) setTimeout(() => bcInput.focus(), 10);
+      }
+    });
+  });
+  // 👆 新增結束 👆
   
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -146,12 +167,28 @@ export async function parseBarcodeAndSubmit() { // 🌟 注意這裡變成了 as
       searchKey = parts[1].toUpperCase().trim();
       parsedDrug = monthlyDrugMaster.find(d => (d.priceCode || '').toUpperCase() === searchKey);
       
-      if (parsedDrug) {
-        if (parts.length >= 4 && parts[3].trim() !== '') {
-          qty = parseInt(parts[3], 10) || 1;
-        } else {
-          // 🌟 這裡改成等待我們的新彈窗，會自動強制數字鍵盤
-          const userQty = await openBarcodeQtyModal(parsedDrug.name, `批價碼: ${parsedDrug.priceCode}`);
+          if (parsedDrug) {
+            // 先解析條碼中的數量，若無則預設為 1
+            if (parts.length >= 4 && parts[3].trim() !== '') {
+              qty = parseInt(parts[3], 10) || 1;
+            }
+            
+            // 🌟 取得當前是調劑還是退藥
+            const dispType = document.querySelector('input[name="dispType"]:checked').value;
+
+            // 🌟 攔截邏輯：如果是「退藥」，或是條碼根本沒自帶數量，就強制跳出彈窗
+            if (dispType === '退藥' || !(parts.length >= 4 && parts[3].trim() !== '')) {
+              // 將剛才解析出的 qty 傳進去當作預設值
+              const userQty = await openBarcodeQtyModal(parsedDrug.name, `批價碼: ${parsedDrug.priceCode}`, qty);
+              
+              if (userQty === null) {
+                bcInput.value = ''; 
+                setTimeout(() => bcInput.focus(), 10);
+                return;
+              }
+              qty = parseInt(userQty, 10);
+            }
+          }
           
           if (userQty === null) {
             bcInput.value = ''; 
@@ -794,21 +831,24 @@ export function showTableDetailModal(tableId, tableName) {
   new window.bootstrap.Modal(document.getElementById('detailsModal')).show();
 }
 
-// 🌟 新增：開啟數量彈窗的功能
-export function openBarcodeQtyModal(drugName, drugInfo) {
+// 🌟 新增：開啟數量彈窗的功能 (加入 defaultQty 預設值參數)
+export function openBarcodeQtyModal(drugName, drugInfo, defaultQty = '') {
   return new Promise((resolve) => {
     barcodeQtyResolve = resolve;
     document.getElementById('barcode-qty-drug-name').innerText = drugName;
     document.getElementById('barcode-qty-drug-info').innerText = drugInfo;
     const input = document.getElementById('barcode-qty-input');
-    input.value = ''; // 清空上次輸入
+    
+    // 🌟 修改：帶入預設數量
+    input.value = defaultQty; 
     
     const modal = new window.bootstrap.Modal(document.getElementById('barcodeQtyModal'));
     modal.show();
 
-    // 🌟 關鍵：當彈窗完全打開後，自動對焦並彈出鍵盤
+    // 🌟 關鍵：當彈窗完全打開後，自動對焦並反白數字
     document.getElementById('barcodeQtyModal').addEventListener('shown.bs.modal', () => {
       input.focus();
+      input.select(); // 把預設數字反白，方便藥師直接打新數字覆蓋
     }, { once: true });
   });
 }
