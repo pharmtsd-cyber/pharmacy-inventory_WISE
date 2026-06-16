@@ -20,12 +20,6 @@ export function initMonthlyMode() {
     if (radio.value !== '手動') radio.checked = true;
   });
   updateOnlineUI(); 
-
-  // 🌟 終極修正：直接抓取 name="actionType" 且值不是 "手動" 的選項 (也就是條碼) 強制打勾
-  document.querySelectorAll('input[name="actionType"]').forEach(radio => {
-    if (radio.value !== '手動') radio.checked = true;
-  });
-  updateOnlineUI(); 
   
   // 👇 🌟 在這裡新增：監聽「調劑/退藥」切換事件，自動將游標定位 👇
   document.querySelectorAll('input[name="dispType"]').forEach(radio => {
@@ -167,28 +161,19 @@ export async function parseBarcodeAndSubmit() { // 🌟 注意這裡變成了 as
       searchKey = parts[1].toUpperCase().trim();
       parsedDrug = monthlyDrugMaster.find(d => (d.priceCode || '').toUpperCase() === searchKey);
       
-          if (parsedDrug) {
-            // 先解析條碼中的數量，若無則預設為 1
-            if (parts.length >= 4 && parts[3].trim() !== '') {
-              qty = parseInt(parts[3], 10) || 1;
-            }
-            
-            // 🌟 取得當前是調劑還是退藥
-            const dispType = document.querySelector('input[name="dispType"]:checked').value;
+      if (parsedDrug) {
+        // 先解析條碼中的數量，若無則預設為 1
+        if (parts.length >= 4 && parts[3].trim() !== '') {
+          qty = parseInt(parts[3], 10) || 1;
+        }
+        
+        // 🌟 取得當前是調劑還是退藥
+        const dispType = document.querySelector('input[name="dispType"]:checked').value;
 
-            // 🌟 攔截邏輯：如果是「退藥」，或是條碼根本沒自帶數量，就強制跳出彈窗
-            if (dispType === '退藥' || !(parts.length >= 4 && parts[3].trim() !== '')) {
-              // 將剛才解析出的 qty 傳進去當作預設值
-              const userQty = await openBarcodeQtyModal(parsedDrug.name, `批價碼: ${parsedDrug.priceCode}`, qty);
-              
-              if (userQty === null) {
-                bcInput.value = ''; 
-                setTimeout(() => bcInput.focus(), 10);
-                return;
-              }
-              qty = parseInt(userQty, 10);
-            }
-          }
+        // 🌟 攔截邏輯：如果是「退藥」，或是條碼根本沒自帶數量，就強制跳出彈窗
+        if (dispType === '退藥' || !(parts.length >= 4 && parts[3].trim() !== '')) {
+          // 將剛才解析出的 qty 傳進去當作預設值
+          const userQty = await openBarcodeQtyModal(parsedDrug.name, `批價碼: ${parsedDrug.priceCode}`, qty);
           
           if (userQty === null) {
             bcInput.value = ''; 
@@ -199,6 +184,20 @@ export async function parseBarcodeAndSubmit() { // 🌟 注意這裡變成了 as
         }
       }
     } 
+  } else { 
+    // ... 原本的非分號解析邏輯保持不變 ...
+  }
+  
+  // 檢查藥品是否存在 (同原邏輯)
+  if (!parsedDrug) { 
+    alert(`❌ 系統查無此藥品！`); 
+    bcInput.value = ''; 
+    setTimeout(() => bcInput.focus(), 10);
+    return; 
+  }
+  
+  submitMonthlyOnline('條碼', { priceCode: parsedDrug.priceCode, invCode: parsedDrug.invCode, name: parsedDrug.name, qty: qty, barcode: bcStr }, '');
+}
   } else { 
     // ... 原本的非分號解析邏輯保持不變 ...
   }
