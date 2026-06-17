@@ -10,6 +10,7 @@ export let html5QrCode = null;
 export let stockSelectedDrug = null; 
 export let onlineSelectedDrug = null;
 export let barcodeQtyResolve = null;
+export let allRecordsData = [];
 
 export function initMonthlyMode() {
   switchView('view-monthly-app'); 
@@ -297,18 +298,35 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
 }
 
 export function loadUserRecords(callback) {
-  fetchBackend('getMonthlyUserRecords', { userId: session.id }).then(res => { myRecordsData = res; renderAllRecordLists(); if(callback) callback(); }).catch(err => { toggleLoader(false); alert("紀錄載入失敗"); });
+  // 🌟 改為呼叫 ALL，並在前端過濾出「自己的」跟「全部的」
+  fetchBackend('getMonthlyUserRecords', { userId: 'ALL' }).then(res => { 
+    allRecordsData = res; 
+    myRecordsData = res.filter(r => r.userId === session.id);
+    renderAllRecordLists(); 
+    if(callback) callback(); 
+  }).catch(err => { toggleLoader(false); alert("紀錄載入失敗"); });
 }
 
 export function pushRecordLocally(recInfo) {
   if (!recInfo) return;
-  if (recInfo.action === 'insert') { myRecordsData.unshift(recInfo); } 
-  else if (recInfo.action === 'update') { 
-    let existing = null; 
-    if (recInfo.type === '盤點調劑台') existing = myRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
-    else if (recInfo.type === '盤點庫存') existing = myRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); 
-    if (existing) { existing.qty = recInfo.qty; existing.handQty = recInfo.handQty; } 
-    else { loadUserRecords(); return; } 
+  if (!recInfo.userId) recInfo.userId = session.id;
+  if (!recInfo.userName) recInfo.userName = session.name;
+  
+  if (recInfo.action === 'insert') { 
+    myRecordsData.unshift(recInfo); 
+    allRecordsData.unshift(recInfo);
+  } else if (recInfo.action === 'update') { 
+    let exMy = null, exAll = null; 
+    if (recInfo.type === '盤點調劑台') {
+      exMy = myRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
+      exAll = allRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
+    } else if (recInfo.type === '盤點庫存') {
+      exMy = myRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); 
+      exAll = allRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); 
+    }
+    if (exMy) { exMy.qty = recInfo.qty; exMy.handQty = recInfo.handQty; } 
+    if (exAll) { exAll.qty = recInfo.qty; exAll.handQty = recInfo.handQty; } 
+    if (!exMy && !exAll) { loadUserRecords(); return; } 
   }
   renderAllRecordLists();
 }
@@ -389,8 +407,65 @@ export function switchDeskSubTab(view) {
   } 
 }
 
-export function switchStockSubTab(view) { const btnIn = document.getElementById('btn-stock-sub-input'), btnList = document.getElementById('btn-stock-sub-list'); if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; if (view === 'input') { if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; document.getElementById('area-stock-input').classList.remove('d-none'); document.getElementById('area-stock-list').classList.add('d-none'); } else { if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; document.getElementById('area-stock-input').classList.add('d-none'); document.getElementById('area-stock-list').classList.remove('d-none'); renderAllRecordLists(); } }
-export function switchOnlineSubTab(view) { const btnIn = document.getElementById('btn-online-sub-input'), btnList = document.getElementById('btn-online-sub-list'); if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; if (view === 'input') { if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; document.getElementById('area-online-input').classList.remove('d-none'); document.getElementById('area-online-list').classList.add('d-none'); } else { if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; document.getElementById('area-online-input').classList.add('d-none'); document.getElementById('area-online-list').classList.remove('d-none'); renderAllRecordLists(); } }
+export function switchStockSubTab(view) { 
+  const btnIn = document.getElementById('btn-stock-sub-input'), btnList = document.getElementById('btn-stock-sub-list'), btnAll = document.getElementById('btn-stock-sub-all'); 
+  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
+  if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
+  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
+  
+  document.getElementById('area-stock-input').classList.add('d-none'); document.getElementById('area-stock-list').classList.add('d-none'); document.getElementById('area-stock-all').classList.add('d-none');
+  
+  if (view === 'input') { 
+    if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; 
+    document.getElementById('area-stock-input').classList.remove('d-none'); 
+  } else if (view === 'list') { 
+    if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; 
+    document.getElementById('area-stock-list').classList.remove('d-none'); renderAllRecordLists(); 
+  } else if (view === 'all') {
+    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; 
+    document.getElementById('area-stock-all').classList.remove('d-none'); renderAllRecordLists();
+  }
+}
+
+export function switchOnlineSubTab(view) { 
+  const btnIn = document.getElementById('btn-online-sub-input'), btnList = document.getElementById('btn-online-sub-list'), btnAll = document.getElementById('btn-online-sub-all'); 
+  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
+  if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
+  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
+  
+  document.getElementById('area-online-input').classList.add('d-none'); document.getElementById('area-online-list').classList.add('d-none'); document.getElementById('area-online-all').classList.add('d-none');
+  
+  if (view === 'input') { 
+    if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; 
+    document.getElementById('area-online-input').classList.remove('d-none'); 
+  } else if (view === 'list') { 
+    if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; 
+    document.getElementById('area-online-list').classList.remove('d-none'); renderAllRecordLists(); 
+  } else if (view === 'all') {
+    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; 
+    document.getElementById('area-online-all').classList.remove('d-none'); renderAllRecordLists();
+  }
+}
+
+// 🌟 新增：軌跡紀錄次分頁切換
+export function switchRecordsSubTab(view) {
+  const btnMy = document.getElementById('btn-records-sub-my'), btnAll = document.getElementById('btn-records-sub-all');
+  if(btnMy) btnMy.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2';
+  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2';
+  
+  const areaMy = document.getElementById('area-records-my'), areaAll = document.getElementById('area-records-all');
+  if (areaMy) areaMy.classList.add('d-none');
+  if (areaAll) areaAll.classList.add('d-none');
+  
+  if (view === 'my') {
+    if(btnMy) btnMy.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2';
+    if (areaMy) areaMy.classList.remove('d-none');
+  } else {
+    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2';
+    if (areaAll) areaAll.classList.remove('d-none');
+  }
+  renderAllRecordLists();
+}
 
 export function selectStockDrug(priceCode) { const drug = monthlyDrugMaster.find(d => d.priceCode === priceCode); if (!drug) return; stockSelectedDrug = drug; document.getElementById('stock-dropdown').style.display = 'none'; document.getElementById('stock-drug-search').value = ''; document.getElementById('stock-sel-name').innerText = drug.name; document.getElementById('stock-sel-inv').innerText = drug.invCode; document.getElementById('stock-sel-price').innerText = drug.priceCode; document.getElementById('stock-selected-card').classList.remove('d-none'); document.getElementById('stock-qty').focus(); }
 export function selectOnlineDrug(priceCode) { const drug = monthlyDrugMaster.find(d => d.priceCode === priceCode); if (!drug) return; onlineSelectedDrug = drug; document.getElementById('online-dropdown').style.display = 'none'; document.getElementById('online-drug-search').value = ''; document.getElementById('online-sel-name').innerText = drug.name; document.getElementById('online-sel-inv').innerText = drug.invCode; document.getElementById('online-selected-card').classList.remove('d-none'); document.getElementById('online-qty').focus(); }
@@ -506,54 +581,62 @@ export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
 export function renderAllRecordLists() { 
   // 1. 庫存分頁紀錄
   let stockRecords = myRecordsData.filter(r => r.type === '盤點庫存'); 
-  const stockCount = document.getElementById('count-stock-counted');
-  if (stockCount) stockCount.innerText = stockRecords.length; 
-  if (activeRecordFilters['stock']) stockRecords = stockRecords.filter(r => r.code === activeRecordFilters['stock']); 
-  const stockArea = document.getElementById('stock-records-area');
-  if (stockArea) stockArea.innerHTML = generateRecordCards(stockRecords, '本月尚未輸入庫存盤點', true); 
+  let stockAllRecords = allRecordsData.filter(r => r.type === '盤點庫存');
+  if (activeRecordFilters['stock']) {
+    stockRecords = stockRecords.filter(r => r.code === activeRecordFilters['stock']); 
+    stockAllRecords = stockAllRecords.filter(r => r.code === activeRecordFilters['stock']); 
+  }
+  const stockCount = document.getElementById('count-stock-counted'); if (stockCount) stockCount.innerText = stockRecords.length; 
+  const stockAllCount = document.getElementById('count-stock-all'); if (stockAllCount) stockAllCount.innerText = stockAllRecords.length;
+  
+  const stockArea = document.getElementById('stock-records-area'); if (stockArea) stockArea.innerHTML = generateRecordCards(stockRecords, '本月尚未輸入庫存盤點', true); 
+  const stockAllArea = document.getElementById('stock-all-records-area'); if (stockAllArea) stockAllArea.innerHTML = generateRecordCards(stockAllRecords, '本月尚無任何人輸入庫存', false); 
 
   // 2. 調劑台(藥架)分頁紀錄
-  const tIdSelect = document.getElementById('monthly-table-select');
-  const tId = tIdSelect ? tIdSelect.value : ''; 
+  const tIdSelect = document.getElementById('monthly-table-select'); const tId = tIdSelect ? tIdSelect.value : ''; 
   let deskRecords = myRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); 
-  const deskCount = document.getElementById('count-desk-counted');
-  if (deskCount) deskCount.innerText = deskRecords.length; 
   if (activeRecordFilters['desk']) deskRecords = deskRecords.filter(r => r.code === activeRecordFilters['desk']); 
-  const deskArea = document.getElementById('desk-records-area');
-  if (deskArea) deskArea.innerHTML = generateRecordCards(deskRecords, '本區本月尚無盤點紀錄', true); 
+  const deskCount = document.getElementById('count-desk-counted'); if (deskCount) deskCount.innerText = deskRecords.length; 
+  const deskArea = document.getElementById('desk-records-area'); if (deskArea) deskArea.innerHTML = generateRecordCards(deskRecords, '本區本月尚無盤點紀錄', true); 
 
   // 3. 線上區紀錄
   let onlineRecords = myRecordsData.filter(r => r.type === '線上調劑'); 
-  const onlineCount = document.getElementById('count-online-counted');
-  if (onlineCount) onlineCount.innerText = onlineRecords.length; 
-  if (activeRecordFilters['online']) onlineRecords = onlineRecords.filter(r => r.code === activeRecordFilters['online']); 
-  const onlineArea = document.getElementById('online-records-area');
-  if (onlineArea) onlineArea.innerHTML = generateRecordCards(onlineRecords, '本月尚無線上調劑紀錄', true); 
+  let onlineAllRecords = allRecordsData.filter(r => r.type === '線上調劑');
+  if (activeRecordFilters['online']) {
+    onlineRecords = onlineRecords.filter(r => r.code === activeRecordFilters['online']); 
+    onlineAllRecords = onlineAllRecords.filter(r => r.code === activeRecordFilters['online']); 
+  }
+  const onlineCount = document.getElementById('count-online-counted'); if (onlineCount) onlineCount.innerText = onlineRecords.length; 
+  const onlineAllCount = document.getElementById('count-online-all'); if (onlineAllCount) onlineAllCount.innerText = onlineAllRecords.length;
+  
+  const onlineArea = document.getElementById('online-records-area'); if (onlineArea) onlineArea.innerHTML = generateRecordCards(onlineRecords, '本月尚無線上調劑紀錄', true); 
+  const onlineAllArea = document.getElementById('online-all-records-area'); if (onlineAllArea) onlineAllArea.innerHTML = generateRecordCards(onlineAllRecords, '本月尚無任何線上調劑紀錄', false); 
 
-  // 🌟 4. 「我的紀錄」分頁：加入日期過濾邏輯
-  let allRecords = [...myRecordsData]; 
+  // 4. 「我的紀錄」與「全域紀錄」軌跡
+  let allMyRecords = [...myRecordsData]; 
+  let allGlobalRecords = [...allRecordsData]; 
   const selectedDate = document.getElementById('filter-date-records') ? document.getElementById('filter-date-records').value : '';
   
-  // 藥品代碼篩選
   if (activeRecordFilters['records']) {
-    allRecords = allRecords.filter(r => r.code === activeRecordFilters['records']);
+    allMyRecords = allMyRecords.filter(r => r.code === activeRecordFilters['records']);
+    allGlobalRecords = allGlobalRecords.filter(r => r.code === activeRecordFilters['records']);
   }
   
-  // 日期篩選 (比較 YYYY-MM-DD)
   if (selectedDate) {
-    allRecords = allRecords.filter(r => {
+    const dFilter = r => {
       if (!r.tStamp) return false;
-      const d = new Date(r.tStamp);
-      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dStr = `${new Date(r.tStamp).getFullYear()}-${String(new Date(r.tStamp).getMonth() + 1).padStart(2, '0')}-${String(new Date(r.tStamp).getDate()).padStart(2, '0')}`;
       return dStr === selectedDate;
-    });
+    };
+    allMyRecords = allMyRecords.filter(dFilter);
+    allGlobalRecords = allGlobalRecords.filter(dFilter);
   }
 
-  const totalCount = document.getElementById('user-records-count');
-  if (totalCount) totalCount.innerText = allRecords.length; 
+  const totalCount = document.getElementById('user-records-count'); if (totalCount) totalCount.innerText = allMyRecords.length; 
+  const allCount = document.getElementById('all-records-count'); if (allCount) allCount.innerText = allGlobalRecords.length; 
   
-  const userArea = document.getElementById('user-records-area');
-  if (userArea) userArea.innerHTML = generateRecordCards(allRecords, '查無符合條件的紀錄', false); 
+  const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); 
+  const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', false); // 別人的紀錄不開放直接修改
 }
 
 export function generateRecordCards(recordsArray, emptyMsg, allowEdit) { 
@@ -561,36 +644,30 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
   let html = ''; 
   recordsArray.forEach(record => { 
     const isVoid = record.status === '作廢';
-    
     let qtyStr = record.handQty; let colorClass = 'text-primary'; let dispBadge = ''; 
-    let cardBg = ''; // 🌟 新增底色變數
-    let borderClass = 'border-info'; // 🌟 預設邊框顏色
+    let cardBg = ''; let borderClass = 'border-info'; 
 
     if (record.dispType === '調劑') { 
-      qtyStr = `-${record.handQty}`; 
-      colorClass = 'text-danger'; 
-      dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; 
-      cardBg = 'background-color: #fff0f4;'; // 🌟 調劑使用粉紅底色
-      borderClass = 'border-danger'; // 🌟 左側紅邊框
+      qtyStr = `-${record.handQty}`; colorClass = 'text-danger'; dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; cardBg = 'background-color: #fff0f4;'; borderClass = 'border-danger'; 
     } 
     else if (record.dispType === '退藥') { 
-      qtyStr = `+${record.handQty}`; 
-      colorClass = 'text-success'; 
-      dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; 
-      borderClass = 'border-success'; // 🌟 退藥使用綠邊框
+      qtyStr = `+${record.handQty}`; colorClass = 'text-success'; dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; borderClass = 'border-success'; 
     } 
     
     const cardStyle = isVoid ? `opacity: 0.6; filter: grayscale(100%); ${cardBg}` : cardBg;
     const badgeHtml = isVoid ? `<span class="badge bg-secondary ms-1">已作廢</span>` : dispBadge;
     const locInfo = record.loc ? ` | 儲位: ${record.loc}` : ''; 
     
+    // 🌟 在卡片上顯示操作的人員姓名
+    const userInfo = record.userName ? ` <span class="badge bg-light text-dark border ms-1"><i class="bi bi-person-fill"></i> ${record.userName}</span>` : '';
+    
     const actionHtml = isVoid
       ? `<button class="btn btn-sm btn-outline-success py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '成立')">還原</button>`
-      : `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editRecord('${record.sn}')">修改</button>
-         <button class="btn btn-sm btn-outline-danger py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '作廢')">作廢</button>`;
+      : `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editRecord('${record.sn}')">修改</button><button class="btn btn-sm btn-outline-danger py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '作廢')">作廢</button>`;
+    
     const editButtons = allowEdit ? `<div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top"><div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass}">${qtyStr}</div><div>${actionHtml}</div></div>` : `<div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass} mt-1 pt-1 border-top">${qtyStr}</div>`; 
     
-    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 ${borderClass}" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span></div>${editButtons}</div></div>`; 
+    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 ${borderClass}" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary mt-1" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span>${userInfo}</div>${editButtons}</div></div>`; 
   }); 
   return html; 
 }
