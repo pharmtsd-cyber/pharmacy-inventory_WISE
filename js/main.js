@@ -9,7 +9,7 @@ import {
 } from './daily.js';
 
 import { 
-  initMonthlyMode, switchMonthlyTab, switchStockSubTab, switchDeskSubTab, switchOnlineSubTab, 
+  initMonthlyMode, switchMonthlyTab, switchStockSubTab, switchDeskSubTab, switchOnlineSubTab, switchRecordsSubTab,
   handleStockSearch, handleOnlineSearch, selectStockDrug, selectOnlineDrug, 
   handleTableSelectChange, submitMonthlyDeskOne, submitMonthlyStock, submitMonthlyOnline, 
   updateOnlineUI, startLiveScanner, closeLiveScanner, parseBarcodeAndSubmit, 
@@ -89,6 +89,9 @@ window.switchMonthlyTab = switchMonthlyTab;
 window.switchStockSubTab = switchStockSubTab;
 window.switchDeskSubTab = switchDeskSubTab;
 window.switchOnlineSubTab = switchOnlineSubTab;
+
+window.switchRecordsSubTab = switchRecordsSubTab;
+
 window.handleStockSearch = handleStockSearch;
 window.handleOnlineSearch = handleOnlineSearch;
 window.selectStockDrug = selectStockDrug;
