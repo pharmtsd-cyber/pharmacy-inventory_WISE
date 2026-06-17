@@ -232,8 +232,13 @@
       <div id="area-desk-list" class="d-none"><div id="desk-records-area" class="pb-5"></div></div>
     </div>
 
+    <!-- 🌟 修改庫存分頁 -->
     <div id="tab-stock" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
-      <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1"><li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-stock-sub-input" onclick="switchStockSubTab('input')">盤點輸入</button></li><li class="nav-item"><button class="nav-link fw-bold border text-success bg-white shadow-sm py-2" id="btn-stock-sub-list" onclick="switchStockSubTab('list')">已盤點 (<span id="count-stock-counted">0</span>)</button></li></ul>
+      <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1">
+        <li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-stock-sub-input" onclick="switchStockSubTab('input')">盤點輸入</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold border text-success bg-white shadow-sm py-2" id="btn-stock-sub-list" onclick="switchStockSubTab('list')">我的紀錄 (<span id="count-stock-counted">0</span>)</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold border text-primary bg-white shadow-sm py-2" id="btn-stock-sub-all" onclick="switchStockSubTab('all')">全部 (<span id="count-stock-all">0</span>)</button></li>
+      </ul>
       <div id="area-stock-input" class="card p-2 border-0 shadow-sm mb-2 bg-white">
         <div class="position-relative mb-2"><input type="text" id="stock-drug-search" class="form-control form-control-lg bg-light border-secondary fw-bold" placeholder="🔍 搜尋藥名或代碼..." onkeyup="handleStockSearch()" autocomplete="off"><div id="stock-dropdown" class="search-dropdown text-start shadow"></div></div>
         <div id="stock-selected-card" class="d-none p-2 mb-2 border border-success rounded bg-light"><div class="fw-bold text-dark fs-5 mb-1" id="stock-sel-name"></div><div class="d-flex gap-2 small"><span class="badge bg-academic">加P: <span id="stock-sel-inv"></span></span><span class="badge bg-secondary">批價: <span id="stock-sel-price"></span></span></div></div>
@@ -241,10 +246,16 @@
         <div id="stock-success-card" class="d-none"></div>
       </div>
       <div id="area-stock-list" class="d-none"><div id="stock-records-area"></div></div>
+      <div id="area-stock-all" class="d-none"><div id="stock-all-records-area"></div></div>
     </div>
 
+    <!-- 🌟 修改線上分頁 -->
     <div id="tab-online" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
-      <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1"><li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-online-sub-input" onclick="switchOnlineSubTab('input')">線上作業</button></li><li class="nav-item"><button class="nav-link fw-bold border text-success bg-white shadow-sm py-2" id="btn-online-sub-list" onclick="switchOnlineSubTab('list')">已作業 (<span id="count-online-counted">0</span>)</button></li></ul>
+      <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1">
+        <li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-online-sub-input" onclick="switchOnlineSubTab('input')">線上作業</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold border text-success bg-white shadow-sm py-2" id="btn-online-sub-list" onclick="switchOnlineSubTab('list')">已作業 (<span id="count-online-counted">0</span>)</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold border text-primary bg-white shadow-sm py-2" id="btn-online-sub-all" onclick="switchOnlineSubTab('all')">全部 (<span id="count-online-all">0</span>)</button></li>
+      </ul>
       <div id="area-online-input" class="card p-2 border-0 shadow-sm mb-2 bg-white">
         <div class="d-flex gap-2 mb-2"><input type="radio" class="btn-check" name="dispType" id="disp-minus" value="調劑" checked><label class="btn btn-outline-academic flex-grow-1 fw-bold py-2 shadow-sm fs-6" for="disp-minus">調劑 (-)</label><input type="radio" class="btn-check" name="dispType" id="disp-plus" value="退藥"><label class="btn btn-outline-academic flex-grow-1 fw-bold py-2 shadow-sm fs-6" for="disp-plus">退藥 (+)</label></div>
         <div class="d-flex gap-2 mb-2 border-bottom pb-2"><input type="radio" class="btn-check" name="actionType" id="action-manual" value="手動" checked onchange="updateOnlineUI()"><label class="btn btn-outline-academic flex-grow-1 fw-bold py-2 shadow-sm fs-6" for="action-manual">手動搜尋</label><input type="radio" class="btn-check" name="actionType" id="action-barcode" value="條碼" onchange="updateOnlineUI()"><label class="btn btn-outline-academic flex-grow-1 fw-bold py-2 shadow-sm fs-6" for="action-barcode">條碼掃描</label></div>
@@ -291,11 +302,16 @@
         <div id="online-success-card" class="d-none"></div>
       </div>
       <div id="area-online-list" class="d-none"><div id="online-records-area" class="pb-5"></div></div>
+      <div id="area-online-all" class="d-none"><div id="online-all-records-area" class="pb-5"></div></div>
     </div>
 
+    <!-- 🌟 修改紀錄分頁 -->
     <div id="tab-records" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
       <div class="card p-3 border-0 shadow-sm mb-2 bg-white flex-shrink-0">
-        <div class="text-academic fw-bold mb-2"><i class="bi bi-person-badge"></i> 我的盤點軌跡 (總筆數: <span id="user-records-count">0</span>)</div>
+        <ul class="nav nav-pills nav-fill gap-2 mb-3">
+          <li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-records-sub-my" onclick="switchRecordsSubTab('my')">我的軌跡 (<span id="user-records-count">0</span>)</button></li>
+          <li class="nav-item"><button class="nav-link fw-bold border text-primary bg-white shadow-sm py-2" id="btn-records-sub-all" onclick="switchRecordsSubTab('all')">全域軌跡 (<span id="all-records-count">0</span>)</button></li>
+        </ul>
         
         <div class="row g-2 mb-2">
           <div class="col-12">
@@ -315,7 +331,8 @@
         </div>
       </div>
       
-      <div id="user-records-area" class="pb-5"></div>
+      <div id="area-records-my"><div id="user-records-area" class="pb-5"></div></div>
+      <div id="area-records-all" class="d-none"><div id="all-records-area" class="pb-5"></div></div>
     </div>
   </div>
 
