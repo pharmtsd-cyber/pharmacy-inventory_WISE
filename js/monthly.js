@@ -247,21 +247,21 @@ export function submitMonthlyStock() {
   document.getElementById('stock-qty').value = ''; stockSelectedDrug = null; 
   document.getElementById('stock-selected-card').classList.add('d-none'); document.getElementById('stock-drug-search').value = '';
   
-  // 🌟 關鍵新增：送出並清空卡片後，強制將游標拉回「搜尋框」
   setTimeout(() => {
     const searchInput = document.getElementById('stock-drug-search');
     if (searchInput) searchInput.focus();
   }, 10);
   
+  // 🌟 修改點：背景發送，移除所有報錯彈窗
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點庫存', actionSrc: '', dispType: '', drugCode: currentDrug.invCode, drugName: currentDrug.name, priceCodeSelect: currentDrug.priceCode, handQty: qty, tableId: 'BFYYY', locCode: '', barcode: '' })
     .then((res) => { 
         if (res && res.success) pushRecordLocally(res.resultRecord); 
-        else showToast('寫入異常: '+res.message, 'delete'); // 異常改用上方紅色 Toast
     })
-    .catch(err => { showToast('網路連線錯誤，資料未寫入', 'delete'); });
+    .catch(err => { 
+        console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
+    });
 }
 
-// 🌟 2. 送出寫入 (破解 DOM 渲染導致的焦點遺失)
 export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode = '') {
   const type = '線上調劑'; const dispType = document.querySelector('input[name="dispType"]:checked').value;
   let payloadDrug = null; let qty = 0; let barcodeStr = '';
@@ -277,7 +277,6 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
   
   if (actionSrc === '手動') { 
     document.getElementById('online-qty').value = ''; onlineSelectedDrug = null; document.getElementById('online-selected-card').classList.add('d-none'); document.getElementById('online-drug-search').value=''; 
-    // 🌟 關鍵新增：手動搜尋模式下，送出後將游標拉回「搜尋框」
     setTimeout(() => {
       const searchInput = document.getElementById('online-drug-search');
       if (searchInput) searchInput.focus();
@@ -285,16 +284,17 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
   } else { 
     const bcInput = document.getElementById('online-barcode');
     bcInput.value = ''; 
-    // 延遲 10 毫秒對焦：等綠色卡片畫完之後，才把游標搶回來
     setTimeout(() => bcInput.focus(), 10); 
   }
 
+  // 🌟 修改點：背景發送，移除所有報錯彈窗
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: type, actionSrc: actionSrc, dispType: dispType, drugCode: payloadDrug.invCode, drugName: payloadDrug.name, priceCodeSelect: writePriceCode, handQty: qty, tableId: 'BFZZZ', locCode: '', barcode: barcodeStr })
     .then((res) => { 
         if(res && res.success) pushRecordLocally(res.resultRecord); 
-        else showToast('寫入異常: '+res.message, 'delete'); 
     })
-    .catch(err => { showToast('網路連線錯誤，資料未寫入', 'delete'); });
+    .catch(err => { 
+        console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
+    });
 }
 
 export function loadUserRecords(callback) {
@@ -535,7 +535,6 @@ export function renderMonthlyDesk() {
   area.innerHTML = html;
 }
 
-// 🌟 配合上述修正，簡化送出後的畫面互動
 export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
   const inputEl = document.getElementById(`m-qty-${loc}`); const qty = inputEl.value; 
   if(qty === '' || qty < 0) return alert('請輸入有效數量'); 
@@ -543,9 +542,7 @@ export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
   const tableData = monthlyTables.find(t => t.id === tableId); if (!tableData) return; 
   const item = tableData.items.find(i => i.locCode === loc); if (!item) return;
   
-  const originalStatus = item.hasCounted; const originalQty = item.countedQty; 
-  const originalUser = item.countedUser; const originalTime = item.countedTime;
-
+  // 樂觀更新：直接當作成功，寫入本地端資料
   item.hasCounted = true; 
   item.countedQty = qty; 
   item.countedUser = session.name;
@@ -569,12 +566,12 @@ export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
     }, 10);
   } 
   
+  // 🌟 修改點：背景發送，移除所有報錯彈窗，不再還原狀態
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台', actionSrc: '', dispType: '', drugCode: dCode, drugName: dName, handQty: qty, tableId: tId, locCode: loc })
     .then((res) => { 
       if (res && res.success) { pushRecordLocally(res.resultRecord); } 
-      else { showToast('寫入失敗: ' + (res.message || ''), 'error'); item.hasCounted = originalStatus; item.countedQty = originalQty; item.countedUser = originalUser; item.countedTime = originalTime; renderMonthlyDesk(); } 
     }).catch(err => { 
-      showToast('網路連線錯誤', 'error'); item.hasCounted = originalStatus; item.countedQty = originalQty; item.countedUser = originalUser; item.countedTime = originalTime; renderMonthlyDesk(); 
+      console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
     }); 
 }
 
@@ -716,7 +713,7 @@ export async function editRecord(sn) {
 
   if (newQty === null || newQty === "") return;
   
-  const oldQty = record.handQty;
+  // 樂觀更新：直接改寫畫面
   record.handQty = newQty; 
   renderAllRecordLists(); 
   
@@ -725,11 +722,13 @@ export async function editRecord(sn) {
   }));
   renderMonthlyDesk();
 
+  // 🌟 修改點：移除成功與失敗的 Toast 彈窗，不再還原狀態
   fetchBackend('updateMonthlyRecord', { sn: sn, newQty: newQty, dispType: record.dispType, userId: session.id, userName: session.name })
     .then(res => {
-      if (res.success) { showToast('修改成功'); refreshDashboardDataSilently(); } 
-      else { record.handQty = oldQty; renderAllRecordLists(); renderMonthlyDesk(); showToast('修改失敗: ' + res.message, 'delete'); }
-    }).catch(err => { record.handQty = oldQty; renderAllRecordLists(); renderMonthlyDesk(); showToast('網路連線異常，更新失敗', 'delete'); });
+      refreshDashboardDataSilently();
+    }).catch(err => { 
+      console.warn('修改要求已送出，前端略過錯誤'); 
+    });
 }
 
 // ==========================================
@@ -750,7 +749,7 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     if (!isConfirmed) return;
   }
 
-  const oldStatus = record.status;
+  // 樂觀更新：直接作廢
   record.status = newStatus;
   renderAllRecordLists();
 
@@ -761,18 +760,12 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
   }));
   renderMonthlyDesk();
 
+  // 🌟 修改點：移除成功與失敗的 Toast 彈窗，不再還原狀態
   fetchBackend('modifyMonthlyRecordStatus', { sn: sn, newStatus: newStatus, userId: session.id, userName: session.name })
     .then(res => {
-      if (res.success) {
-        showToast(newStatus === '作廢' ? '紀錄已作廢' : '紀錄已還原', newStatus === '作廢' ? 'delete' : 'success');
-        refreshDashboardDataSilently();
-      } else {
-        record.status = oldStatus; renderAllRecordLists(); renderMonthlyDesk();
-        showToast('更新失敗: ' + res.message, 'delete');
-      }
-    }).catch(err => {
-      record.status = oldStatus; renderAllRecordLists(); renderMonthlyDesk();
-      showToast('網路連線異常，更新失敗', 'delete');
+      refreshDashboardDataSilently();
+    }).catch(err => { 
+      console.warn('狀態更新已送出，前端略過錯誤'); 
     });
 }
 
