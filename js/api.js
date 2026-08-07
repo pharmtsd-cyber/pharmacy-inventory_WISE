@@ -12,19 +12,23 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       payload.id = data;
     }
 
-    const params = new URLSearchParams();
-    for (const key in payload) {
-      params.append(key, payload[key]);
-    }
-
-    const finalUrl = `${WEB_APP_URL}?${params.toString()}`;
+    // 🌟 關鍵修復：全面改用 POST 請求，將參數裝入 Body 之中
+    // 徹底解決 payloadArray 過長導致的 400 Bad Request 網址字元數上限問題
+    const fetchOptions = {
+      method: 'POST',
+      redirect: 'follow',
+      // 使用 text/plain 偽裝，完美迴避 Google Apps Script 嚴格的 CORS 跨網域擋截
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(payload)
+    };
 
     // 🌟 將 fetch 包裝成一個可以遞迴重試的內部函式
     const attemptFetch = (retriesLeft) => {
-      fetch(finalUrl, {
-        method: 'GET',
-        redirect: 'follow'
-      })
+      
+      // 這裡直接對乾淨的 WEB_APP_URL 發出請求，不再於網址列串接參數
+      fetch(WEB_APP_URL, fetchOptions)
       .then(response => {
         if (!response.ok) throw new Error('網路回應錯誤，狀態碼: ' + response.status);
         return response.json();
