@@ -233,7 +233,7 @@ export async function editDailyQty(locCode, currentQty) {
   item.countedQty = newQty; 
   renderDailyItems();
 
-  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: newQty, newStatus: null, userId: session.id, userName: session.name })
+  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: newQty, newStatus: '成立', userId: session.id, userName: session.name })
     .then(res => {
       if (res.success) { showToast('修改成功'); } 
       else { item.countedQty = oldQty; renderDailyItems(); showToast('修改失敗: ' + res.message, 'delete'); }
@@ -263,7 +263,7 @@ export async function toggleDailyStatus(locCode, newStatus) {
   item.status = newStatus;
   updateTabUI(); renderDailyItems();
 
-  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: null, newStatus: newStatus, userId: session.id, userName: session.name })
+  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: '成立', newStatus: newStatus, userId: session.id, userName: session.name })
     .then(res => {
       if (res.success) { showToast(newStatus === '作廢' ? '紀錄已作廢' : '紀錄已還原', newStatus === '作廢' ? 'delete' : 'success'); } 
       else { item.status = oldStatus; updateTabUI(); renderDailyItems(); showToast('更新失敗: ' + res.message, 'delete'); }
