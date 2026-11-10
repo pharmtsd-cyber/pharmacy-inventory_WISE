@@ -3,6 +3,44 @@
  */
 import { session, DEPT_NAME } from './config.js';
 
+
+// ==========================================
+// 🌟 背景同步狀態視覺回饋
+// ==========================================
+let syncTimeout = null;
+
+export function updateSyncUI(activeCount) {
+  const syncBadge = document.getElementById('nav-sync-status');
+  if (!syncBadge) return;
+
+  // 為了避免與 api.js 的循環依賴，這裡直接讀取 localStorage
+  const offlineQueue = JSON.parse(localStorage.getItem('femh_offline_queue')) || [];
+  const offlineCount = offlineQueue.length;
+  const totalPending = activeCount + offlineCount;
+
+  if (totalPending > 0) {
+    clearTimeout(syncTimeout);
+    syncBadge.style.display = 'inline-block';
+    
+    if (offlineCount > 0 && !navigator.onLine) {
+      syncBadge.className = 'badge bg-danger text-white shadow-sm ms-2';
+      syncBadge.innerHTML = `<i class="bi bi-wifi-off"></i> 離線暫存 ${offlineCount} 筆`;
+    } else {
+      syncBadge.className = 'badge bg-warning text-dark shadow-sm ms-2';
+      syncBadge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 10px; height: 10px;"></span> 處理中 ${totalPending} 筆`;
+    }
+  } else {
+    syncBadge.className = 'badge bg-success text-white shadow-sm ms-2';
+    syncBadge.innerHTML = `<i class="bi bi-cloud-check-fill"></i> 已全數同步`;
+    
+    syncTimeout = setTimeout(() => {
+      if (document.getElementById('nav-sync-status').innerHTML.includes('已全數同步')) {
+        syncBadge.style.display = 'none';
+      }
+    }, 2000);
+  }
+}
+
 // 切換全螢幕載入動畫
 export function toggleLoader(show) {
   const loader = document.getElementById('loader');
