@@ -1,10 +1,11 @@
+import { activeUploads, syncOfflineData } from './api.js'; 
 import { session, DEPT_NAME, DEPT_COLOR, currentDept, MAINTENANCE_LINK_MAP } from './config.js';
 import { switchView } from './ui.js';
 import { handleLogin, handleLogout } from './auth.js';
 
 import { 
   initDailyMode, changeDailyDate, switchDailyTab, submitDailyOne, 
-  editDailyQty, toggleDailyStatus, // 🌟 新增這兩個
+  editDailyQty, toggleDailyStatus, 
   openAdminSort, toggleVisibility, highlightSearchItem, rebuildAdminList, saveAdminDataToServer, renderDailyItems 
 } from './daily.js';
 
@@ -15,7 +16,7 @@ import {
   updateOnlineUI, startLiveScanner, closeLiveScanner, parseBarcodeAndSubmit, 
   loadUserRecords, handleRecordFilterSearch, clearRecordFilter, applyRecordFilter, 
   editRecord, toggleMonthlyRecordStatus, refreshMonthlyData,
-  refreshDashboardData, renderMonthlyDashboard, showTableDetailModal, enterTableInventory, handleMonthlyBack
+  refreshDashboardData, refreshDashboardDataSilently, renderMonthlyDashboard, showTableDetailModal, enterTableInventory, handleMonthlyBack
 } from './monthly.js';
 
 import { 
@@ -25,15 +26,76 @@ import {
 
 
 // ==========================================
+// 🛡️ 瀏覽器與 APP 內部防護網 (防止資料遺失)
+// ==========================================
+window.addEventListener('beforeunload', function (e) {
+  if (activeUploads > 0) {
+    const msg = '尚有資料在背景上傳中，現在離開將會遺失資料！請等待同步完成。';
+    e.returnValue = msg; 
+    return msg;          
+  }
+});
+
+// 🌟 覆寫返回按鈕，加入防護
+window.backToModeSelect = function() {
+  if (activeUploads > 0) {
+    alert(`⚠️ 系統正在背景同步，請稍候幾秒鐘，待畫面上方顯示「已全數同步」後再離開。`);
+    return;
+  }
+  switchView('view-mode-select');
+};
+
+const originalHandleMonthlyBack = handleMonthlyBack;
+window.handleMonthlyBack = function() {
+  if (activeUploads > 0) {
+    alert(`⚠️ 系統正在背景同步，請稍候幾秒鐘再離開。`);
+    return;
+  }
+  originalHandleMonthlyBack();
+};
+
+// ==========================================
+// 🔄 網路監聽與智慧型靜默刷新
+// ==========================================
+window.addEventListener('online', syncOfflineData);
+document.addEventListener('DOMContentLoaded', syncOfflineData);
+
+function safeSilentRefresh() {
+  // 1. 偵測游標是否停留在任何輸入框 (打字中)
+  const activeTagName = document.activeElement ? document.activeElement.tagName : '';
+  const isTyping = (activeTagName === 'INPUT' || activeTagName === 'TEXTAREA');
+
+  // 2. 偵測畫面上是否有任何 Bootstrap 彈窗處於開啟狀態
+  const hasOpenModal = document.querySelector('.modal.show') !== null;
+
+  // 🛡️ 如果藥師正在忙，則進入「等待模式」
+  if (isTyping || hasOpenModal) {
+    console.log('⏳ 藥師正在操作中，暫停畫面重繪，2秒後重試...');
+    setTimeout(safeSilentRefresh, 2000); 
+    return;
+  }
+
+  // ✅ 安全執行畫面重繪
+  if (session.mode === '月盤點') {
+    loadUserRecords(() => { console.log('🔄 [靜默刷新] 月盤點軌跡已完美對齊'); });
+    refreshDashboardDataSilently();
+  } else if (session.mode === '每日盤點') {
+    if (typeof changeDailyDate === 'function') {
+      changeDailyDate();
+      console.log('🔄 [靜默刷新] 每日盤點清單已完美對齊');
+    }
+  }
+}
+window.addEventListener('offline-sync-complete', safeSilentRefresh);
+
+// ==========================================
 // 🚀 全院多藥局「環境外觀動態渲染引擎」
 // ==========================================
 (function applyDynamicEnvironment() {
   if (!currentDept) {
-    // 💡 情況 A：網址沒有參數，停在大廳
     switchView('view-lobby');
     document.title = '盤點系統入口大廳';
   } else {
-    // 💡 情況 B：網址有參數，進入該藥局登入畫面並套用主題
     switchView('view-login');
     document.title = `${DEPT_NAME}盤點APP`;
     document.documentElement.style.setProperty('--academic-primary', DEPT_COLOR);
@@ -42,24 +104,14 @@ import {
   }
 })();
 
-// 🌟 點擊大廳按鈕：加上參數並重新載入網頁 (乾淨切換環境)
 window.enterPharmacy = function(deptCode) {
   window.location.href = `?dept=${deptCode}`;
 };
 
-// 🌟 返回模式選擇 (每日/月盤點)
-window.backToModeSelect = function() {
-  switchView('view-mode-select');
-};
-
-// 🌟 🚀 新增：動態開啟盤點表維護連結
 window.openMaintenanceLink = function() {
   const link = MAINTENANCE_LINK_MAP[currentDept];
-  if (link) {
-    window.open(link, '_blank'); // 開啟對應藥局的連結
-  } else {
-    alert('尚未設定此單位的盤點表維護連結！');
-  }
+  if (link) window.open(link, '_blank');
+  else alert('尚未設定此單位的盤點表維護連結！');
 };
 
 window.switchView = switchView;
@@ -130,9 +182,8 @@ window.openNoteModal = openNoteModal;
 window.submitDrugNote = submitDrugNote;
 window.voidDrugNote = voidDrugNote;
 
-
 window.enterTableInventory = enterTableInventory;
-window.handleMonthlyBack = handleMonthlyBack;
+// window.handleMonthlyBack = handleMonthlyBack; // 已經在上方覆寫保護了
 window.refreshMonthlyData = refreshMonthlyData;
 
 // ==========================================
