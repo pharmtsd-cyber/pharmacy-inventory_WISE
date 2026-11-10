@@ -141,12 +141,18 @@ export function renderDailyItems() {
         </div>`;
         
     } else {
+      
+      // 🌟 判斷是否有修改紀錄，有的話顯示修改者與時間的黃色 Badge
+      const updateInfo = (item.updateUser && item.updateTime) 
+        ? ` <span class="ms-1 badge bg-warning text-dark shadow-sm" style="font-size:0.65rem;"><i class="bi bi-pencil-square"></i> ${item.updateUser} 修改</span>` 
+        : '';
+        
       html += `
         <div class="card drug-card mb-2 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
           <div class="card-body p-2">
             <div class="d-flex justify-content-between mb-1">
               <div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${item.drugName}</div>
-              <div class="small text-muted" style="font-size:0.75rem;">${item.timeStr}</div>
+              <div class="small text-muted text-end" style="font-size:0.75rem;">${item.timeStr}${updateInfo}</div>
             </div>
             <div class="small text-secondary mb-2">
               <span class="badge bg-success">已盤點</span>
