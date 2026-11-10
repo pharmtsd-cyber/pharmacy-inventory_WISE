@@ -21,7 +21,9 @@ export function initMonthlyMode() {
   });
   
   const today = new Date(); const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const dateInput = document.getElementById('filter-date-records'); if (dateInput) dateInput.value = todayStr;
+  
+  const startInput = document.getElementById('filter-date-start'); if (startInput) startInput.value = todayStr;
+  const endInput = document.getElementById('filter-date-end'); if (endInput) endInput.value = todayStr;
 
   toggleLoader(true);
   fetchBackend('getMonthlyInitData').then(res => {
@@ -137,15 +139,12 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
 
 export function loadUserRecords(callback) {
   fetchBackend('getMonthlyUserRecords', { userId: 'ALL' }).then(res => { 
-    // 🌟 【防禦 1】嚴格白名單：只允許顯示這三個月盤點類別的紀錄，強制把其他髒資料（如每日盤點）隔絕！
     const validMonthlyTypes = ['盤點調劑台', '盤點庫存', '線上調劑'];
-    allRecordsData = res.filter(r => validMonthlyTypes.includes(r.type)); 
+    allRecordsData = res.filter(r => validMonthlyTypes.includes((r.type || '').trim())); 
     
-    // 🌟 【防禦 2】強化比對：把前後空白去掉，避免 session 名稱與資料庫差一個空白而比對失敗
     const sName = session.name ? session.name.trim() : '';
     const sId = session.id ? session.id.trim() : '';
     
-    // 🌟 只要是你建立的，或是你修改的，全部拉進「我的軌跡」
     myRecordsData = allRecordsData.filter(r => (r.userId || '').trim() === sId || (r.updateUser || '').trim() === sName);
     
     renderAllRecordLists(); 
@@ -312,11 +311,22 @@ export function renderAllRecordLists() {
   const onlineArea = document.getElementById('online-records-area'); if (onlineArea) onlineArea.innerHTML = generateRecordCards(onlineRecords, '本月尚無線上調劑紀錄', true); const onlineAllArea = document.getElementById('online-all-records-area'); if (onlineAllArea) onlineAllArea.innerHTML = generateRecordCards(onlineAllRecords, '本月尚無任何線上調劑紀錄', false); 
 
   let allMyRecords = [...myRecordsData]; let allGlobalRecords = [...allRecordsData]; 
-  const selectedDate = document.getElementById('filter-date-records') ? document.getElementById('filter-date-records').value : '';
+  
+  const startDateStr = document.getElementById('filter-date-start') ? document.getElementById('filter-date-start').value : '';
+  const endDateStr = document.getElementById('filter-date-end') ? document.getElementById('filter-date-end').value : '';
   
   if (activeRecordFilters['records']) { allMyRecords = allMyRecords.filter(r => r.code === activeRecordFilters['records']); allGlobalRecords = allGlobalRecords.filter(r => r.code === activeRecordFilters['records']); }
-  if (selectedDate) {
-    const dFilter = r => { if (!r.tStamp) return false; const dStr = `${new Date(r.tStamp).getFullYear()}-${String(new Date(r.tStamp).getMonth() + 1).padStart(2, '0')}-${String(new Date(r.tStamp).getDate()).padStart(2, '0')}`; return dStr === selectedDate; };
+  
+  if (startDateStr || endDateStr) {
+    const startT = startDateStr ? new Date(startDateStr.replace(/-/g, '/') + ' 00:00:00').getTime() : 0;
+    const endT = endDateStr ? new Date(endDateStr.replace(/-/g, '/') + ' 23:59:59').getTime() : Number.MAX_SAFE_INTEGER;
+
+    const dFilter = r => { 
+      let match = false;
+      if (r.tStamp && r.tStamp >= startT && r.tStamp <= endT) match = true;
+      if (r.updateTStamp && r.updateTStamp >= startT && r.updateTStamp <= endT) match = true;
+      return match; 
+    };
     allMyRecords = allMyRecords.filter(dFilter); allGlobalRecords = allGlobalRecords.filter(dFilter);
   }
 
@@ -362,22 +372,24 @@ export function handleRecordFilterSearch(tabKey) {
   if (tabKey === 'stock') sourceData = myRecordsData.filter(r => r.type === '盤點庫存'); 
   else if (tabKey === 'desk') { const tId = document.getElementById('monthly-table-select').value; sourceData = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); } 
   else if (tabKey === 'online') sourceData = myRecordsData.filter(r => r.type === '線上調劑'); 
-  else if (tabKey === 'records') sourceData = allRecordsData; // 🌟 軌跡頁面從全域找
+  else if (tabKey === 'records') sourceData = allRecordsData; 
   
-  const uniqueDrugs = []; const seen = new Set(); 
+  const uniqueMap = new Map();
   sourceData.forEach(r => { 
-    const key = r.code + '_' + (r.loc || '');
-    if (!seen.has(key)) { seen.add(key); uniqueDrugs.push({ code: r.code, name: r.name, loc: r.loc || '' }); } 
+    if (!uniqueMap.has(r.code)) { uniqueMap.set(r.code, { code: r.code, name: r.name, locs: new Set() }); }
+    if (r.loc) uniqueMap.get(r.code).locs.add(r.loc);
   }); 
   
-  let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw) || d.loc.toLowerCase().includes(kw)) : uniqueDrugs; 
+  const uniqueDrugs = Array.from(uniqueMap.values()).map(d => ({ code: d.code, name: d.name, locStr: Array.from(d.locs).join(', ') }));
+  let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw) || d.locStr.toLowerCase().includes(kw)) : uniqueDrugs; 
+  
   if (kw && filtered.length > 0) { 
     filtered.sort((a, b) => { 
       const getScore = (d) => { 
         let score = 999; 
         if (d.code.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.code.toLowerCase().indexOf(kw)); 
         if (d.name.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.name.toLowerCase().indexOf(kw)); 
-        if (d.loc.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.loc.toLowerCase().indexOf(kw)); 
+        if (d.locStr.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.locStr.toLowerCase().indexOf(kw)); 
         return score; 
       }; 
       return getScore(a) - getScore(b); 
@@ -386,7 +398,7 @@ export function handleRecordFilterSearch(tabKey) {
   
   if (filtered.length > 0) { 
     dropdown.innerHTML = filtered.slice(0, 10).map(d => {
-      const locBadge = d.loc ? `<span class="badge bg-secondary ms-1">儲位: ${d.loc}</span>` : '';
+      const locBadge = d.locStr ? `<span class="badge bg-secondary ms-1">儲位: ${d.locStr}</span>` : '';
       return `<div class="search-dropdown-item" onclick="applyRecordFilter('${tabKey}', '${d.code}', '${d.name.replace(/'/g, "\\'")}')"><div class="fw-bold text-academic">${d.name}</div><div class="small text-muted">${d.code} ${locBadge}</div></div>`;
     }).join(''); 
     dropdown.style.display = 'block'; 
@@ -410,7 +422,6 @@ document.addEventListener('click', function(e) {
 });
 
 export async function editRecord(sn) {
-  // 🌟 從 allRecordsData 尋找，支援修改同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
   const newQty = await new Promise(resolve => {
@@ -424,17 +435,17 @@ export async function editRecord(sn) {
 
   if (newQty === null || newQty === "") return;
   
-  // 🌟 樂觀更新：更新全域變數，並壓上自己的名字與時間
   record.handQty = newQty; 
   record.updateUser = session.name;
   record.updateTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  record.updateTStamp = new Date().getTime();
   
-  // 🌟 如果原本不在 myRecordsData 中（因為是修改別人的），現在要把它加進去
   const myRec = myRecordsData.find(r => r.sn === sn);
   if (myRec) { 
     myRec.handQty = newQty; 
     myRec.updateUser = session.name;
     myRec.updateTime = record.updateTime;
+    myRec.updateTStamp = record.updateTStamp;
   } else {
     myRecordsData.unshift(record);
   }
@@ -448,7 +459,6 @@ export async function editRecord(sn) {
 }
 
 export async function toggleMonthlyRecordStatus(sn, newStatus) {
-  // 🌟 從 allRecordsData 尋找，支援作廢同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
 
@@ -460,17 +470,17 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     if (!isConfirmed) return;
   }
 
-  // 🌟 樂觀更新：更新全域變數，並壓上自己的名字與時間
   record.status = newStatus;
   record.updateUser = session.name;
   record.updateTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  record.updateTStamp = new Date().getTime(); 
   
-  // 🌟 如果原本不在 myRecordsData 中（因為是作廢別人的），現在要把它加進去
   const myRec = myRecordsData.find(r => r.sn === sn);
   if (myRec) { 
     myRec.status = newStatus; 
     myRec.updateUser = session.name;
     myRec.updateTime = record.updateTime;
+    myRec.updateTStamp = record.updateTStamp;
   } else {
     myRecordsData.unshift(record);
   }
