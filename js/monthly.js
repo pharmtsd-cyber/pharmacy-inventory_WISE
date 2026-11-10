@@ -137,8 +137,12 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
 
 export function loadUserRecords(callback) {
   fetchBackend('getMonthlyUserRecords', { userId: 'ALL' }).then(res => { 
-    allRecordsData = res; myRecordsData = res.filter(r => r.userId === session.id);
-    renderAllRecordLists(); if(callback) callback(); 
+    allRecordsData = res; 
+    // 🌟 修改：我的軌跡包含自己「建立」的 OR 自己「修改」的紀錄
+    myRecordsData = res.filter(r => r.userId === session.id || r.updateUser === session.name);
+    
+    renderAllRecordLists(); 
+    if(callback) callback(); 
   }).catch(err => { toggleLoader(false); alert("紀錄載入失敗"); });
 }
 
@@ -310,7 +314,10 @@ export function renderAllRecordLists() {
   }
 
   const totalCount = document.getElementById('user-records-count'); if (totalCount) totalCount.innerText = allMyRecords.length; const allCount = document.getElementById('all-records-count'); if (allCount) allCount.innerText = allGlobalRecords.length; 
-  const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', false); 
+  const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); 
+  
+  // 🌟 修改：將最後一個參數改為 true，全面開放全域軌跡的修改與作廢權限！
+  const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', true); 
 }
 
 export function generateRecordCards(recordsArray, emptyMsg, allowEdit) { 
@@ -344,7 +351,58 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
   return html; 
 }
 
-export function handleRecordFilterSearch(tabKey) { const kw = document.getElementById(`filter-input-${tabKey}`).value.toLowerCase().trim(); const dropdown = document.getElementById(`filter-dropdown-${tabKey}`); let sourceData = []; if (tabKey === 'stock') sourceData = myRecordsData.filter(r => r.type === '盤點庫存'); else if (tabKey === 'desk') { const tId = document.getElementById('monthly-table-select').value; sourceData = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); } else if (tabKey === 'online') sourceData = myRecordsData.filter(r => r.type === '線上調劑'); else if (tabKey === 'records') sourceData = myRecordsData; const uniqueDrugs = []; const seen = new Set(); sourceData.forEach(r => { if (!seen.has(r.code)) { seen.add(r.code); uniqueDrugs.push({ code: r.code, name: r.name }); } }); let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw)) : uniqueDrugs; if (kw && filtered.length > 0) { filtered.sort((a, b) => { const getScore = (d) => { let score = 999; if (d.code.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.code.toLowerCase().indexOf(kw)); if (d.name.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.name.toLowerCase().indexOf(kw)); return score; }; return getScore(a) - getScore(b); }); } if (filtered.length > 0) { dropdown.innerHTML = filtered.slice(0, 10).map(d => `<div class="search-dropdown-item" onclick="applyRecordFilter('${tabKey}', '${d.code}', '${d.name.replace(/'/g, "\\'")}')"><div class="fw-bold text-academic">${d.name}</div><div class="small text-muted">${d.code}</div></div>`).join(''); dropdown.style.display = 'block'; } else { dropdown.innerHTML = '<div class="p-2 text-muted small">清單中無相符藥品</div>'; dropdown.style.display = 'block'; } }
+export function handleRecordFilterSearch(tabKey) { 
+  const kw = document.getElementById(`filter-input-${tabKey}`).value.toLowerCase().trim(); 
+  const dropdown = document.getElementById(`filter-dropdown-${tabKey}`); 
+  let sourceData = []; 
+  
+  if (tabKey === 'stock') sourceData = myRecordsData.filter(r => r.type === '盤點庫存'); 
+  else if (tabKey === 'desk') { const tId = document.getElementById('monthly-table-select').value; sourceData = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); } 
+  else if (tabKey === 'online') sourceData = myRecordsData.filter(r => r.type === '線上調劑'); 
+  // 🌟 修改：讓軌跡頁面的篩選器從「全域資料庫」找，不再侷限於自己的資料
+  else if (tabKey === 'records') sourceData = allRecordsData; 
+  
+  const uniqueDrugs = []; 
+  const seen = new Set(); 
+  sourceData.forEach(r => { 
+    // 🌟 修改：把儲位也綁進 key 裡面，讓同藥品但不同儲位的可以分開選
+    const key = r.code + '_' + (r.loc || '');
+    if (!seen.has(key)) { 
+      seen.add(key); 
+      uniqueDrugs.push({ code: r.code, name: r.name, loc: r.loc || '' }); 
+    } 
+  }); 
+  
+  // 🌟 修改：篩選條件加入儲位 (d.loc)
+  let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw) || d.loc.toLowerCase().includes(kw)) : uniqueDrugs; 
+  
+  if (kw && filtered.length > 0) { 
+    filtered.sort((a, b) => { 
+      const getScore = (d) => { 
+        let score = 999; 
+        if (d.code.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.code.toLowerCase().indexOf(kw)); 
+        if (d.name.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.name.toLowerCase().indexOf(kw)); 
+        // 🌟 修改：加入儲位權重計分
+        if (d.loc.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.loc.toLowerCase().indexOf(kw)); 
+        return score; 
+      }; 
+      return getScore(a) - getScore(b); 
+    }); 
+  } 
+  
+  if (filtered.length > 0) { 
+    dropdown.innerHTML = filtered.slice(0, 10).map(d => {
+      // 🌟 修改：在下拉選單中順便顯示出儲位，視覺更清楚
+      const locBadge = d.loc ? `<span class="badge bg-secondary ms-1">儲位: ${d.loc}</span>` : '';
+      return `<div class="search-dropdown-item" onclick="applyRecordFilter('${tabKey}', '${d.code}', '${d.name.replace(/'/g, "\\'")}')"><div class="fw-bold text-academic">${d.name}</div><div class="small text-muted">${d.code} ${locBadge}</div></div>`;
+    }).join(''); 
+    dropdown.style.display = 'block'; 
+  } else { 
+    dropdown.innerHTML = '<div class="p-2 text-muted small">清單中無相符藥品</div>'; 
+    dropdown.style.display = 'block'; 
+  } 
+}
+
 export function applyRecordFilter(tabKey, code, name) { activeRecordFilters[tabKey] = code; document.getElementById(`filter-input-${tabKey}`).value = `${name} (${code})`; document.getElementById(`filter-dropdown-${tabKey}`).style.display = 'none'; renderAllRecordLists(); }
 export function clearRecordFilter(tabKey) { activeRecordFilters[tabKey] = null; document.getElementById(`filter-input-${tabKey}`).value = ''; document.getElementById(`filter-dropdown-${tabKey}`).style.display = 'none'; renderAllRecordLists(); }
 document.addEventListener('click', function(e) { 
