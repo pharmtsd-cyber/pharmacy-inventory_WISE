@@ -13,9 +13,7 @@ export function initDailyMode() {
   updateTabUI(); 
   switchView('view-daily-app'); 
   
-  // 🌟 修正點：在進入畫面的瞬間，直接取得當下日期並填入選擇器
   const today = new Date();
-  // 確保格式為標準的 YYYY-MM-DD (HTML date input 規定月份與日期必須強制補零)
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   
   const dateSelect = document.getElementById('header-date-select');
@@ -23,7 +21,6 @@ export function initDailyMode() {
     dateSelect.value = todayStr;
   }
 
-  // 直接帶著今天的日期字串去跟後端要資料
   loadDailyData(todayStr); 
 }
 export function changeDailyDate() { loadDailyData(document.getElementById('header-date-select').value); }
@@ -40,7 +37,6 @@ export function loadDailyData(dateStr) {
     updateTabUI(); 
     renderDailyItems(); 
     
-    // 👇 請在 renderDailyItems() 的下方加上這一行 👇
     checkAdminNewDrugs();
 
   }).catch(err => { 
@@ -53,7 +49,6 @@ export function switchDailyTab(tabName) {
   if (currentDailyTab === tabName) return; 
   currentDailyTab = tabName; 
   
-  // 🌟 新增：切換分頁時，自動清空搜尋框的字
   const searchInput = document.getElementById('daily-search-input');
   if (searchInput) searchInput.value = '';
   
@@ -70,7 +65,6 @@ export function updateTabUI() {
   document.getElementById('count-counted').innerText = dailyItems.filter(i => i.hasRecord).length;
 }
 
-// 🌟 渲染每日盤點清單 (實作顏色交錯設計 + 終極防禦升級)
 export function renderDailyItems() {
   const area = document.getElementById('daily-list-area');
   if (!area) return;
@@ -89,7 +83,6 @@ export function renderDailyItems() {
     filtered = filtered.filter(i => (i.drugCode||'').toLowerCase().includes(kw) || (i.drugName||'').toLowerCase().includes(kw) || (i.locCode||'').toLowerCase().includes(kw));
   }
 
-  // 更新頁籤上的數字 Badge
   const uCount = dailyItems.filter(i => !i.hasRecord || i.status === '作廢').length;
   const cCount = dailyItems.filter(i => i.hasRecord && i.status === '成立').length;
   const badgeU = document.getElementById('count-daily-uncounted'); if(badgeU) badgeU.innerText = uCount;
@@ -101,24 +94,17 @@ export function renderDailyItems() {
   }
 
   let html = '';
-  // 🌟 關鍵修改：傳入 index 以便計算交錯顏色
   filtered.forEach((item, index) => {
     
-    // 🚀 一勞永逸的終極防禦：將藥名轉為純英數 Base64 密碼，徹底絕緣所有特殊符號
     const encodedName = btoa(encodeURIComponent(item.drugName || '')); 
-    
-    // 🌟 顏色分流邏輯：偶數用藥局綠 (Default)，奇數用灰色 (Gray)
     const borderColor = index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd';
 
     if (currentDailyTab === '未盤') {
       
-      // 🚀 動態生成每日盤點的專屬提示區塊 (有資料才顯示，沒資料保持乾淨)
       let hintHtml = '';
-      // I 欄：每日盤點注意事項 (對應後端的 infoNotice)
       if (item.infoNotice && item.infoNotice !== '') {
         hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點注意：${item.infoNotice}</div>`;
       }
-      // H 欄：藥品備註 (對應後端的 infoMemo)
       if (item.infoMemo && item.infoMemo !== '') {
         hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.infoMemo}</div>`;
       }
@@ -155,7 +141,6 @@ export function renderDailyItems() {
         </div>`;
         
     } else {
-       // 已盤點清單同樣套用交錯色，維持視覺統一
       html += `
         <div class="card drug-card mb-2 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
           <div class="card-body p-2">
@@ -198,20 +183,26 @@ export function submitDailyOne(loc, dCode, dName, tId) {
   renderDailyItems(); 
   if (navigator.vibrate) navigator.vibrate(50); 
   
-  // 刪除了原本寫在這裡的 showToast('盤點成功')
-
   fetchBackend('submitInventory', { mode: '每日盤點', userId: session.id, userName: session.name, type: '盤點調劑台', drugCode: dCode, drugName: dName, handQty: qty, tableId: tId, locCode: loc, inventoryDate: dStr })
+    .then(res => {
+      // 🌟 關鍵：將後端產生的真實 SN 補回前端陣列中！
+      if (res && res.success && res.resultRecord && res.resultRecord.sn) {
+        item.sn = res.resultRecord.sn;
+      }
+    })
     .catch(err => { showToast('網路連線錯誤，請重新盤點', 'delete'); loadDailyData(dStr); });
 }
 
 // ==========================================
-// 🌟 升級版每日盤點修改數量
+// 🌟 升級版每日盤點修改數量 (改用 SN 綁定)
 // ==========================================
 export async function editDailyQty(locCode, currentQty) {
   const item = dailyItems.find(i => i.locCode === locCode);
   if (!item) return;
+  
+  // 🛡️ 防呆：如果剛輸入完網路斷掉，還沒拿到 SN 就想修改
+  if (!item.sn) return alert('此筆紀錄尚未取得雲端識別碼 (可能正在背景上傳中)，請稍候再試。');
 
-  // 呼叫自訂彈窗並等待藥師輸入 (取代原本的 prompt)
   const newQty = await new Promise(resolve => {
     window.resolveEditQtyModal = resolve;
     document.getElementById('edit-qty-drug-name').innerText = item.drugName;
@@ -220,20 +211,20 @@ export async function editDailyQty(locCode, currentQty) {
     input.value = currentQty;
     new window.bootstrap.Modal(document.getElementById('editQtyModal')).show();
     
-    // 彈窗開啟後自動選取數字，方便直接覆蓋輸入
     document.getElementById('editQtyModal').addEventListener('shown.bs.modal', () => { 
       input.focus(); input.select(); 
     }, { once: true });
   });
 
-  if (newQty === null || newQty === "") return; // 藥師按了取消
+  if (newQty === null || newQty === "") return; 
   
   const dateStr = document.getElementById('header-date-select').value;
   const oldQty = item.countedQty;
   item.countedQty = newQty; 
   renderDailyItems();
 
-  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: newQty, newStatus: '成立', userId: session.id, userName: session.name })
+  // 🌟 改為直接傳送 SN
+  fetchBackend('modifyDailyRecord', { sn: item.sn, newQty: newQty, newStatus: '成立', userId: session.id, userName: session.name })
     .then(res => {
       if (res.success) { showToast('修改成功'); } 
       else { item.countedQty = oldQty; renderDailyItems(); showToast('修改失敗: ' + res.message, 'delete'); }
@@ -241,21 +232,22 @@ export async function editDailyQty(locCode, currentQty) {
 }
 
 // ==========================================
-// 🌟 升級版每日盤點作廢功能
+// 🌟 升級版每日盤點作廢功能 (改用 SN 綁定)
 // ==========================================
 export async function toggleDailyStatus(locCode, newStatus) {
   const item = dailyItems.find(i => i.locCode === locCode);
   if (!item) return;
 
+  if (!item.sn) return alert('此筆紀錄尚未取得雲端識別碼 (可能正在背景上傳中)，請稍候再試。');
+
   if (newStatus === '作廢') {
-    // 呼叫防呆作廢彈窗並等待確認 (取代原本的 confirm)
     const isConfirmed = await new Promise(resolve => {
       window.resolveVoidModal = resolve;
       document.getElementById('void-drug-name').innerText = item.drugName;
       document.getElementById('void-drug-info').innerText = item.countedQty;
       new window.bootstrap.Modal(document.getElementById('voidConfirmModal')).show();
     });
-    if (!isConfirmed) return; // 藥師按了取消
+    if (!isConfirmed) return; 
   }
 
   const dateStr = document.getElementById('header-date-select').value;
@@ -263,7 +255,8 @@ export async function toggleDailyStatus(locCode, newStatus) {
   item.status = newStatus;
   updateTabUI(); renderDailyItems();
 
-  fetchBackend('modifyDailyRecord', { dateStr, locCode, newQty: '成立', newStatus: newStatus, userId: session.id, userName: session.name })
+  // 🌟 改為直接傳送 SN
+  fetchBackend('modifyDailyRecord', { sn: item.sn, newQty: '', newStatus: newStatus, userId: session.id, userName: session.name })
     .then(res => {
       if (res.success) { showToast(newStatus === '作廢' ? '紀錄已作廢' : '紀錄已還原', newStatus === '作廢' ? 'delete' : 'success'); } 
       else { item.status = oldStatus; updateTabUI(); renderDailyItems(); showToast('更新失敗: ' + res.message, 'delete'); }
@@ -278,7 +271,6 @@ export function openAdminSort() {
   toggleLoader(true); 
   fetchBackend('getAdminData').then(data => { 
     toggleLoader(false); 
-    
     if (data && data.success === false) { alert('⚠️ 後端資料異常: ' + data.message); return; }
     
     adminData = data; 
@@ -290,28 +282,22 @@ export function openAdminSort() {
     try {
       renderSortableList(); 
       switchView('view-admin-sort'); 
-    } catch(e) {
-      alert('畫面渲染失敗：' + e.message);
-    }
-  }).catch(err => { 
-    toggleLoader(false); 
-    alert('🚫 系統連線失敗：' + err.message); 
-  }); 
+    } catch(e) { alert('畫面渲染失敗：' + e.message); }
+  }).catch(err => { toggleLoader(false); alert('🚫 系統連線失敗：' + err.message); }); 
 }
 
 export function renderSortableList() {
   const container = document.getElementById('admin-sortable-list');
   if (!container) return; 
 
-  // 排序邏輯：有排序的在上面，被隱藏的在中間，新進藥品 (order === '') 排在最下面
   adminCombinedList.sort((a, b) => { 
     const aV = a.order !== 0, bV = b.order !== 0; 
     if (aV && !bV) return -1; 
     if (!aV && bV) return 1; 
     if (aV && bV) { 
       if (a.order !== '' && b.order !== '') return a.order - b.order; 
-      if (a.order !== '' && b.order === '') return -1; // 舊藥品優先
-      if (a.order === '' && b.order !== '') return 1;  // 新藥品沉底
+      if (a.order !== '' && b.order === '') return -1; 
+      if (a.order === '' && b.order !== '') return 1;  
     } 
     return a.locCode.localeCompare(b.locCode); 
   });
@@ -319,15 +305,12 @@ export function renderSortableList() {
   let html = '';
   adminCombinedList.forEach(item => {
     const isHidden = item.order === 0; 
-    const isNew = item.order === ''; // 🌟 判斷是否為新進入 SAP 的藥品
+    const isNew = item.order === ''; 
     
-    // 🌟 如果是新藥品，給它一個顯眼的黃色背景，如果被隱藏則是紅色
     const cardStyle = isHidden ? 'opacity: 0.6; border-left: 5px solid #dc3545;' : 
                      (isNew ? 'border-left: 5px solid #ffc107; background-color: #fffbeb;' : 'border-left: 5px solid var(--academic-primary);'); 
     
     const eyeIcon = isHidden ? 'bi-eye-slash-fill text-danger' : 'bi-eye-fill text-success';
-    
-    // 🌟 新藥品的超亮眼標籤
     const newBadge = isNew ? '<span class="badge bg-warning text-dark ms-2 shadow-sm">🆕 新進藥品</span>' : '';
     
     html += `<div class="card border-0 shadow-sm mb-2 sortable-item" style="${cardStyle}" data-loc="${item.locCode}" data-table="${item.tableId}" data-drug="${item.drugCode}" data-name="${item.drugName}" data-hidden="${isHidden}">
@@ -366,92 +349,34 @@ export function toggleVisibility(btn, locCode) {
 }
 
 export function highlightSearchItem() { const kw = document.getElementById('admin-search-input').value.toLowerCase(); let firstMatch = null; document.querySelectorAll('.sortable-item').forEach(card => { if (kw && (card.querySelector('.search-target').innerText.toLowerCase().includes(kw) || card.getAttribute('data-loc').toLowerCase().includes(kw))) { card.classList.add('bg-warning', 'bg-opacity-25'); if(!firstMatch) firstMatch = card; } else card.classList.remove('bg-warning', 'bg-opacity-25'); }); if (firstMatch) firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-
 export function rebuildAdminList() { if(confirm('確定要重建清單嗎？')) { adminCombinedList = adminData.selectable.map(i => ({ ...i, order: '' })); renderSortableList(); } }
 
 export function saveAdminDataToServer() { 
-  const payload = []; 
-  let currentOrder = 1; 
-  
-  // 1. 確實抓取畫面上拖拉排序與隱藏後的最新狀態
+  const payload = []; let currentOrder = 1; 
   document.querySelectorAll('.sortable-item').forEach(el => { 
-    payload.push({ 
-      tableId: el.getAttribute('data-table'), 
-      locCode: el.getAttribute('data-loc'), 
-      drugCode: el.getAttribute('data-drug'), 
-      drugName: el.getAttribute('data-name'), 
-      order: el.getAttribute('data-hidden') === 'true' ? 0 : currentOrder++ 
-    }); 
+    payload.push({ tableId: el.getAttribute('data-table'), locCode: el.getAttribute('data-loc'), drugCode: el.getAttribute('data-drug'), drugName: el.getAttribute('data-name'), order: el.getAttribute('data-hidden') === 'true' ? 0 : currentOrder++ }); 
   }); 
-  
   toggleLoader(true); 
-  
-  // 🌟 核心修正：使用 JSON.stringify(payload) 將複雜陣列打碎成標準字串傳送，徹底解決 [object Object] 的通訊 Bug！
   fetchBackend('saveAdminSortData', { payloadArray: JSON.stringify(payload) }).then(res => { 
     toggleLoader(false); 
-    
-    if (res && res.success) {
-      showToast('🎉 管理排序順序已成功儲存至資料庫！'); 
-      // 儲存成功後，順便重新載入當日資料，讓主畫面同步最新排序
-      if (typeof changeDailyDate === 'function') {
-        changeDailyDate();
-      }
-    } else {
-      alert('❌ 儲存失敗：' + (res.message || '後端資料庫寫入異常'));
-    }
-  }).catch(err => {
-    toggleLoader(false);
-    console.error('排序儲存錯誤:', err);
-    alert('⚠️ 儲存時連線發生異常：' + err.message);
-  });
+    if (res && res.success) { showToast('🎉 管理排序順序已成功儲存至資料庫！'); if (typeof changeDailyDate === 'function') changeDailyDate(); } 
+    else { alert('❌ 儲存失敗：' + (res.message || '後端資料庫寫入異常')); }
+  }).catch(err => { toggleLoader(false); console.error('排序儲存錯誤:', err); alert('⚠️ 儲存時連線發生異常：' + err.message); });
 }
 
-// ==========================================
-// 🌟 彈窗全域控制方法 (給 index.html 的按鈕呼叫)
-// ==========================================
 window.resolveEditQtyModal = window.resolveEditQtyModal || null;
 window.resolveVoidModal = window.resolveVoidModal || null;
+window.confirmEditQty = () => { const val = document.getElementById('edit-qty-input').value; if (val === '') return alert('請輸入數量'); window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide(); if(window.resolveEditQtyModal) window.resolveEditQtyModal(val); };
+window.cancelEditQty = () => { window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide(); if(window.resolveEditQtyModal) window.resolveEditQtyModal(null); };
+window.confirmVoid = () => { window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide(); if(window.resolveVoidModal) window.resolveVoidModal(true); };
+window.cancelVoid = () => { window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide(); if(window.resolveVoidModal) window.resolveVoidModal(false); };
 
-window.confirmEditQty = () => {
-  const val = document.getElementById('edit-qty-input').value;
-  if (val === '') return alert('請輸入數量');
-  window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide();
-  if(window.resolveEditQtyModal) window.resolveEditQtyModal(val);
-};
-window.cancelEditQty = () => {
-  window.bootstrap.Modal.getInstance(document.getElementById('editQtyModal')).hide();
-  if(window.resolveEditQtyModal) window.resolveEditQtyModal(null);
-};
-window.confirmVoid = () => {
-  window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide();
-  if(window.resolveVoidModal) window.resolveVoidModal(true);
-};
-window.cancelVoid = () => {
-  window.bootstrap.Modal.getInstance(document.getElementById('voidConfirmModal')).hide();
-  if(window.resolveVoidModal) window.resolveVoidModal(false);
-};
-
-// 🌟 檢查是否有尚未排序的新進藥品 (給按鈕上的 New Badge 使用)
 export function checkAdminNewDrugs() {
-  // 不使用 toggleLoader，讓它在背景默默抓取，不干擾藥師操作
   fetchBackend('getAdminData').then(data => {
     if (data && data.success !== false) {
-      // 判斷條件：只要在 SAP 清單 (selectable) 中，但還沒出現在存檔紀錄 (saved) 中，就是新藥品
-      const hasNew = (data.selectable || []).some(item => {
-        const savedItem = (data.saved || []).find(s => s.locCode === item.locCode);
-        return !savedItem; 
-      });
-
+      const hasNew = (data.selectable || []).some(item => { return !(data.saved || []).find(s => s.locCode === item.locCode); });
       const badge = document.getElementById('admin-new-badge');
-      if (badge) {
-        if (hasNew) {
-          badge.classList.remove('d-none');
-        } else {
-          badge.classList.add('d-none');
-        }
-      }
+      if (badge) { if (hasNew) badge.classList.remove('d-none'); else badge.classList.add('d-none'); }
     }
-  }).catch(err => {
-    console.warn('背景檢查排序新藥品狀態失敗:', err);
-  });
+  }).catch(err => { console.warn('背景檢查排序新藥品狀態失敗:', err); });
 }
