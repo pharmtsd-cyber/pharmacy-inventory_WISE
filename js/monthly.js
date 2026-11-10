@@ -2,264 +2,114 @@ import { fetchBackend } from './api.js';
 import { toggleLoader, switchView, showToast, playBeep, requestWakeLock, releaseWakeLock } from './ui.js';
 import { session } from './config.js';
 
-export let monthlyDrugMaster = []; 
-export let monthlyTables = []; 
-export let myRecordsData = []; 
+export let monthlyDrugMaster = []; export let monthlyTables = []; export let myRecordsData = []; 
 export let activeRecordFilters = { stock: null, desk: null, online: null, records: null }; 
-export let html5QrCode = null; 
-export let stockSelectedDrug = null; 
-export let onlineSelectedDrug = null;
-export let barcodeQtyResolve = null;
-export let allRecordsData = [];
+export let html5QrCode = null; export let stockSelectedDrug = null; export let onlineSelectedDrug = null;
+export let barcodeQtyResolve = null; export let allRecordsData = [];
 
 export function initMonthlyMode() {
-  switchView('view-monthly-app'); 
-  switchMonthlyTab('tab-dashboard'); 
-  
-  // 🌟 終極修正：直接抓取 name="actionType" 且值不是 "手動" 的選項 (也就是條碼) 強制打勾
-  document.querySelectorAll('input[name="actionType"]').forEach(radio => {
-    if (radio.value !== '手動') radio.checked = true;
-  });
+  switchView('view-monthly-app'); switchMonthlyTab('tab-dashboard'); 
+  document.querySelectorAll('input[name="actionType"]').forEach(radio => { if (radio.value !== '手動') radio.checked = true; });
   updateOnlineUI(); 
   
-  // 👇 🌟 在這裡新增：監聽「調劑/退藥」切換事件，自動將游標定位 👇
   document.querySelectorAll('input[name="dispType"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const actionType = document.querySelector('input[name="actionType"]:checked');
-      if (actionType && actionType.value === '手動') {
-        const searchInput = document.getElementById('online-drug-search');
-        if (searchInput) setTimeout(() => searchInput.focus(), 10);
-      } else {
-        const bcInput = document.getElementById('online-barcode');
-        if (bcInput) setTimeout(() => bcInput.focus(), 10);
-      }
+      if (actionType && actionType.value === '手動') { const searchInput = document.getElementById('online-drug-search'); if (searchInput) setTimeout(() => searchInput.focus(), 10);
+      } else { const bcInput = document.getElementById('online-barcode'); if (bcInput) setTimeout(() => bcInput.focus(), 10); }
     });
   });
-  // 👆 新增結束 👆
   
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const dateInput = document.getElementById('filter-date-records');
-  if (dateInput) dateInput.value = todayStr;
+  const today = new Date(); const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const dateInput = document.getElementById('filter-date-records'); if (dateInput) dateInput.value = todayStr;
 
   toggleLoader(true);
   fetchBackend('getMonthlyInitData').then(res => {
-    monthlyDrugMaster = res.drugMaster; 
-    monthlyTables = res.tables;
-    const select = document.getElementById('monthly-table-select');
-    if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-    loadUserRecords(() => { 
-      renderMonthlyDashboard(); 
-      toggleLoader(false); 
-    });
+    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+    const select = document.getElementById('monthly-table-select'); if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    loadUserRecords(() => { renderMonthlyDashboard(); toggleLoader(false); });
   }).catch(err => { toggleLoader(false); alert("載入失敗"); });
 }
 
-// 🌟 啟動相機：完美出場機制 (先遮罩，等完全準備好再顯示畫面)
 export function startLiveScanner() {
-  const scannerWrapper = document.getElementById('scanner-wrapper'); 
-  scannerWrapper.style.display = 'flex'; 
-  document.getElementById('btn-start-camera').classList.add('disabled');
+  const scannerWrapper = document.getElementById('scanner-wrapper'); scannerWrapper.style.display = 'flex'; document.getElementById('btn-start-camera').classList.add('disabled');
+  const loadingMask = document.getElementById('scanner-loading'); const scannerContainer = document.getElementById('scanner-container'); const scannerLaser = document.getElementById('scanner-laser'); const scannerHint = document.getElementById('scanner-hint');
   
-  // 1. 初始化 UI：顯示轉圈圈遮罩，隱藏相機畫面與雷射線
-  const loadingMask = document.getElementById('scanner-loading');
-  const scannerContainer = document.getElementById('scanner-container');
-  const scannerLaser = document.getElementById('scanner-laser');
-  const scannerHint = document.getElementById('scanner-hint');
-  
-  if(loadingMask) loadingMask.style.display = 'flex';
-  if(scannerContainer) scannerContainer.style.opacity = '0';
-  if(scannerLaser) scannerLaser.style.display = 'none';
-  if(scannerHint) scannerHint.style.display = 'none';
-
+  if(loadingMask) loadingMask.style.display = 'flex'; if(scannerContainer) scannerContainer.style.opacity = '0'; if(scannerLaser) scannerLaser.style.display = 'none'; if(scannerHint) scannerHint.style.display = 'none';
   requestWakeLock();
   if (!html5QrCode) html5QrCode = new window.Html5Qrcode("reader");
-  
-  const config = { 
-    fps: 20, 
-    qrbox: { width: 250, height: 250 },
-    aspectRatio: 1.0,
-    disableFlip: false 
-  };
+  const config = { fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: false };
   
   html5QrCode.start({ facingMode: "environment" }, config,
-    (decodedText) => { 
-      if (navigator.vibrate) navigator.vibrate(100); 
-      playBeep(); 
-      document.getElementById('online-barcode').value = decodedText; 
-      closeLiveScanner().then(() => parseBarcodeAndSubmit()); 
-    },
+    (decodedText) => { if (navigator.vibrate) navigator.vibrate(100); playBeep(); document.getElementById('online-barcode').value = decodedText; closeLiveScanner().then(() => parseBarcodeAndSubmit()); },
     (errorMessage) => {} 
   ).then(() => {
-    // 🌟 2. 相機硬體已連線，等待 0.8 秒測光
     setTimeout(() => {
-      // 隱藏轉圈圈，淡入清晰的相機畫面，並啟動雷射線
-      if(loadingMask) loadingMask.style.display = 'none';
-      if(scannerContainer) scannerContainer.style.opacity = '1';
-      if(scannerLaser) scannerLaser.style.display = 'block';
-      if(scannerHint) scannerHint.style.display = 'block';
-
-      // 🌟 【新增魔法】：畫面出現的瞬間，系統「自動」幫您踹一次對焦馬達！
-      try {
-        // 發送單次強制對焦指令
-        html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(()=>{});
-        
-        // 選擇性加強：預設直接微幅放大 1.5 倍 (這會強迫鏡頭進入比較適合掃條碼的微距狀態)
-        html5QrCode.applyVideoConstraints({ advanced: [{ zoom: 1.5 }] }).catch(()=>{});
-      } catch(e) {}
-
-      // 依然保留點擊畫面可以再次強制對焦/放大的功能
+      if(loadingMask) loadingMask.style.display = 'none'; if(scannerContainer) scannerContainer.style.opacity = '1'; if(scannerLaser) scannerLaser.style.display = 'block'; if(scannerHint) scannerHint.style.display = 'block';
+      try { html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(()=>{}); html5QrCode.applyVideoConstraints({ advanced: [{ zoom: 1.5 }] }).catch(()=>{}); } catch(e) {}
       const videoEl = document.querySelector("#reader video");
       if (videoEl) {
-        let isZoomed = true; // 因為上面預設放大了，這裡起始狀態設為 true
+        let isZoomed = true; 
         videoEl.addEventListener("click", () => {
-          try {
-            html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(()=>{});
-            isZoomed = !isZoomed;
-            html5QrCode.applyVideoConstraints({ advanced: [{ zoom: isZoomed ? 2.0 : 1.0 }] }).catch(()=>{});
-            if (navigator.vibrate) navigator.vibrate(30); 
-          } catch(e) {}
+          try { html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(()=>{}); isZoomed = !isZoomed; html5QrCode.applyVideoConstraints({ advanced: [{ zoom: isZoomed ? 2.0 : 1.0 }] }).catch(()=>{}); if (navigator.vibrate) navigator.vibrate(30); } catch(e) {}
         });
       }
     }, 800); 
-    
-  }).catch((err) => {
-    closeLiveScanner(); 
-    alert("❌ 相機啟動失敗！\n\n請確認：\n1. 已允許相機權限\n2. 使用 Safari 或 Chrome 開啟\n3. 處於 https 安全連線狀態"); 
-  });
+  }).catch((err) => { closeLiveScanner(); alert("❌ 相機啟動失敗！\n\n請確認：\n1. 已允許相機權限\n2. 使用 Safari 或 Chrome 開啟\n3. 處於 https 安全連線狀態"); });
 }
 
 export function closeLiveScanner() {
   return new Promise((resolve) => {
-    releaseWakeLock();
-    const wrapper = document.getElementById('scanner-wrapper');
-    const btn = document.getElementById('btn-start-camera');
-    
-    if (html5QrCode && html5QrCode.isScanning) { 
-      html5QrCode.stop().then(() => { 
-        wrapper.style.display = 'none'; 
-        btn.classList.remove('disabled'); 
-        resolve(); 
-      }).catch(err => resolve()); 
-    } else { 
-      wrapper.style.display = 'none'; 
-      btn.classList.remove('disabled'); 
-      resolve(); 
-    }
+    releaseWakeLock(); const wrapper = document.getElementById('scanner-wrapper'); const btn = document.getElementById('btn-start-camera');
+    if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop().then(() => { wrapper.style.display = 'none'; btn.classList.remove('disabled'); resolve(); }).catch(err => resolve()); 
+    } else { wrapper.style.display = 'none'; btn.classList.remove('disabled'); resolve(); }
   });
 }
 
-export async function parseBarcodeAndSubmit() { // 🌟 注意這裡變成了 async
-  const bcInput = document.getElementById('online-barcode'); 
-  const bcStr = bcInput.value.trim(); 
-  if (!bcStr) return;
-  
+export async function parseBarcodeAndSubmit() { 
+  const bcInput = document.getElementById('online-barcode'); const bcStr = bcInput.value.trim(); if (!bcStr) return;
   let qty = 1; let parsedDrug = null; let searchKey = bcStr;
-
   if (bcStr.includes(';')) { 
     const parts = bcStr.split(';'); 
     if (parts.length >= 3) {
-      searchKey = parts[1].toUpperCase().trim();
-      parsedDrug = monthlyDrugMaster.find(d => (d.priceCode || '').toUpperCase() === searchKey);
-      
+      searchKey = parts[1].toUpperCase().trim(); parsedDrug = monthlyDrugMaster.find(d => (d.priceCode || '').toUpperCase() === searchKey);
       if (parsedDrug) {
-        // 先解析條碼中的數量，若無則預設為 1
-        if (parts.length >= 4 && parts[3].trim() !== '') {
-          qty = parseInt(parts[3], 10) || 1;
-        }
-        
-        // 🌟 取得當前是調劑還是退藥
+        if (parts.length >= 4 && parts[3].trim() !== '') qty = parseInt(parts[3], 10) || 1;
         const dispType = document.querySelector('input[name="dispType"]:checked').value;
-
-        // 🌟 攔截邏輯：如果是「退藥」，或是條碼根本沒自帶數量，就強制跳出彈窗
         if (dispType === '退藥' || !(parts.length >= 4 && parts[3].trim() !== '')) {
-          // 將剛才解析出的 qty 傳進去當作預設值
           const userQty = await openBarcodeQtyModal(parsedDrug.name, `批價碼: ${parsedDrug.priceCode}`, qty);
-          
-          if (userQty === null) {
-            bcInput.value = ''; 
-            setTimeout(() => bcInput.focus(), 10);
-            return;
-          }
+          if (userQty === null) { bcInput.value = ''; setTimeout(() => bcInput.focus(), 10); return; }
           qty = parseInt(userQty, 10);
         }
       }
     } 
-  } else { 
-    // ... 原本的非分號解析邏輯保持不變 ...
   }
   
-  // 檢查藥品是否存在 (同原邏輯)
-  if (!parsedDrug) { 
-    alert(`❌ 系統查無此藥品！`); 
-    bcInput.value = ''; 
-    setTimeout(() => bcInput.focus(), 10);
-    return; 
-  }
-  
+  if (!parsedDrug) { alert(`❌ 系統查無此藥品！`); bcInput.value = ''; setTimeout(() => bcInput.focus(), 10); return; }
   submitMonthlyOnline('條碼', { priceCode: parsedDrug.priceCode, invCode: parsedDrug.invCode, name: parsedDrug.name, qty: qty, barcode: bcStr }, '');
 }
 
 export function showSuccessCard(cardId, drugName, qty, actionTag, colorType = 'success') {
-  const card = document.getElementById(cardId); 
-  const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const card = document.getElementById(cardId); const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  card.classList.remove('success-card-bottom'); void card.offsetWidth; 
   
-  card.classList.remove('success-card-bottom');
-  void card.offsetWidth; 
+  let colorTheme = 'bg-success text-white'; let inlineStyle = ''; let iconClass = 'bi-check-circle-fill'; let drugNameColor = 'text-warning'; let dividerColor = 'border-light';
+  if (colorType === '調劑') { colorTheme = 'text-danger border border-danger border-2'; inlineStyle = 'background-color: #fff0f4;'; iconClass = 'bi-exclamation-circle-fill'; drugNameColor = 'text-danger'; dividerColor = 'border-danger border-opacity-25'; }
   
-  // 🌟 判斷是否為「調劑」，切換為粉紅警告主題
-  let colorTheme = 'bg-success text-white';
-  let inlineStyle = '';
-  let iconClass = 'bi-check-circle-fill';
-  let drugNameColor = 'text-warning';
-  let dividerColor = 'border-light';
-
-  if (colorType === '調劑') {
-    colorTheme = 'text-danger border border-danger border-2'; // 紅字、紅邊框
-    inlineStyle = 'background-color: #fff0f4;'; // 粉紅底色
-    iconClass = 'bi-exclamation-circle-fill';
-    drugNameColor = 'text-danger';
-    dividerColor = 'border-danger border-opacity-25';
-  }
-  
-  card.className = `mt-3 p-3 rounded shadow-lg text-center success-card-bottom ${colorTheme}`;
-  card.setAttribute('style', inlineStyle);
-  card.innerHTML = `
-    <div class="fw-bold mb-1 opacity-75"><i class="bi ${iconClass}"></i> 寫入成功</div>
-    <div class="fw-bold mb-2 ${drugNameColor}" style="font-size: 1.8rem; line-height: 1.2;">${drugName}</div>
-    <div class="fw-bold mb-2" style="font-size: 2.2rem;">
-      <span class="fs-5 fw-normal opacity-75">${actionTag} 數量:</span> ${qty}
-    </div>
-    <div class="small mt-2 border-top ${dividerColor} pt-2" style="opacity: 0.8;">
-      <i class="bi bi-clock"></i> 處理時間: ${timeStr}
-    </div>`;
-    
+  card.className = `mt-3 p-3 rounded shadow-lg text-center success-card-bottom ${colorTheme}`; card.setAttribute('style', inlineStyle);
+  card.innerHTML = `<div class="fw-bold mb-1 opacity-75"><i class="bi ${iconClass}"></i> 寫入成功</div><div class="fw-bold mb-2 ${drugNameColor}" style="font-size: 1.8rem; line-height: 1.2;">${drugName}</div><div class="fw-bold mb-2" style="font-size: 2.2rem;"><span class="fs-5 fw-normal opacity-75">${actionTag} 數量:</span> ${qty}</div><div class="small mt-2 border-top ${dividerColor} pt-2" style="opacity: 0.8;"><i class="bi bi-clock"></i> 處理時間: ${timeStr}</div>`;
   card.classList.remove('d-none');
 }
 
 export function submitMonthlyStock() {
-  if (!stockSelectedDrug) return alert('請先搜尋並選擇藥品！');
-  const qty = document.getElementById('stock-qty').value; if (!qty || qty <= 0) return alert('請輸入正整數！');
+  if (!stockSelectedDrug) return alert('請先搜尋並選擇藥品！'); const qty = document.getElementById('stock-qty').value; if (!qty || qty <= 0) return alert('請輸入正整數！');
+  const currentDrug = stockSelectedDrug; showSuccessCard('stock-success-card', currentDrug.name, qty, '庫存盤點', 'success'); 
+  document.getElementById('stock-qty').value = ''; stockSelectedDrug = null; document.getElementById('stock-selected-card').classList.add('d-none'); document.getElementById('stock-drug-search').value = '';
+  setTimeout(() => { const searchInput = document.getElementById('stock-drug-search'); if (searchInput) searchInput.focus(); }, 10);
   
-  const currentDrug = stockSelectedDrug; 
-  showSuccessCard('stock-success-card', currentDrug.name, qty, '庫存盤點', 'success'); // 樂觀UI立刻彈出綠卡
-  
-  document.getElementById('stock-qty').value = ''; stockSelectedDrug = null; 
-  document.getElementById('stock-selected-card').classList.add('d-none'); document.getElementById('stock-drug-search').value = '';
-  
-  setTimeout(() => {
-    const searchInput = document.getElementById('stock-drug-search');
-    if (searchInput) searchInput.focus();
-  }, 10);
-  
-  // 🌟 修改點：背景發送，移除所有報錯彈窗
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點庫存', actionSrc: '', dispType: '', drugCode: currentDrug.invCode, drugName: currentDrug.name, priceCodeSelect: currentDrug.priceCode, handQty: qty, tableId: 'BFYYY', locCode: '', barcode: '' })
-    .then((res) => { 
-        if (res && res.success) pushRecordLocally(res.resultRecord); 
-    })
-    .catch(err => { 
-        console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
-    });
+    .then((res) => { if (res && res.success) pushRecordLocally(res.resultRecord); })
+    .catch(err => { console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); });
 }
 
 export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode = '') {
@@ -267,63 +117,41 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
   let payloadDrug = null; let qty = 0; let barcodeStr = '';
   
   if (actionSrc === '手動') {
-    if (!onlineSelectedDrug) return alert('請先搜尋藥品！');
-    qty = document.getElementById('online-qty').value; if (!qty || qty <= 0) return alert('請輸入正整數！');
+    if (!onlineSelectedDrug) return alert('請先搜尋藥品！'); qty = document.getElementById('online-qty').value; if (!qty || qty <= 0) return alert('請輸入正整數！');
     payloadDrug = onlineSelectedDrug; writePriceCode = payloadDrug.priceCode;
   } else { payloadDrug = parsedData; qty = parsedData.qty; barcodeStr = parsedData.barcode; writePriceCode = ''; }
   
-  const actionTag = dispType === '調劑' ? '調劑(-)' : '退藥(+)'; 
-  showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, dispType); 
+  const actionTag = dispType === '調劑' ? '調劑(-)' : '退藥(+)'; showSuccessCard('online-success-card', payloadDrug.name, qty, actionTag, dispType); 
   
   if (actionSrc === '手動') { 
     document.getElementById('online-qty').value = ''; onlineSelectedDrug = null; document.getElementById('online-selected-card').classList.add('d-none'); document.getElementById('online-drug-search').value=''; 
-    setTimeout(() => {
-      const searchInput = document.getElementById('online-drug-search');
-      if (searchInput) searchInput.focus();
-    }, 10);
+    setTimeout(() => { const searchInput = document.getElementById('online-drug-search'); if (searchInput) searchInput.focus(); }, 10);
   } else { 
-    const bcInput = document.getElementById('online-barcode');
-    bcInput.value = ''; 
-    setTimeout(() => bcInput.focus(), 10); 
+    const bcInput = document.getElementById('online-barcode'); bcInput.value = ''; setTimeout(() => bcInput.focus(), 10); 
   }
 
-  // 🌟 修改點：背景發送，移除所有報錯彈窗
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: type, actionSrc: actionSrc, dispType: dispType, drugCode: payloadDrug.invCode, drugName: payloadDrug.name, priceCodeSelect: writePriceCode, handQty: qty, tableId: 'BFZZZ', locCode: '', barcode: barcodeStr })
-    .then((res) => { 
-        if(res && res.success) pushRecordLocally(res.resultRecord); 
-    })
-    .catch(err => { 
-        console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
-    });
+    .then((res) => { if(res && res.success) pushRecordLocally(res.resultRecord); })
+    .catch(err => { console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); });
 }
 
 export function loadUserRecords(callback) {
-  // 🌟 改為呼叫 ALL，並在前端過濾出「自己的」跟「全部的」
   fetchBackend('getMonthlyUserRecords', { userId: 'ALL' }).then(res => { 
-    allRecordsData = res; 
-    myRecordsData = res.filter(r => r.userId === session.id);
-    renderAllRecordLists(); 
-    if(callback) callback(); 
+    allRecordsData = res; myRecordsData = res.filter(r => r.userId === session.id);
+    renderAllRecordLists(); if(callback) callback(); 
   }).catch(err => { toggleLoader(false); alert("紀錄載入失敗"); });
 }
 
 export function pushRecordLocally(recInfo) {
   if (!recInfo) return;
-  if (!recInfo.userId) recInfo.userId = session.id;
-  if (!recInfo.userName) recInfo.userName = session.name;
+  if (!recInfo.userId) recInfo.userId = session.id; if (!recInfo.userName) recInfo.userName = session.name;
   
   if (recInfo.action === 'insert') { 
-    myRecordsData.unshift(recInfo); 
-    allRecordsData.unshift(recInfo);
+    myRecordsData.unshift(recInfo); allRecordsData.unshift(recInfo);
   } else if (recInfo.action === 'update') { 
     let exMy = null, exAll = null; 
-    if (recInfo.type === '盤點調劑台') {
-      exMy = myRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
-      exAll = allRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
-    } else if (recInfo.type === '盤點庫存') {
-      exMy = myRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); 
-      exAll = allRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); 
-    }
+    if (recInfo.type === '盤點調劑台') { exMy = myRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); exAll = allRecordsData.find(r => r.loc === recInfo.loc && r.type === '盤點調劑台'); 
+    } else if (recInfo.type === '盤點庫存') { exMy = myRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); exAll = allRecordsData.find(r => r.code === recInfo.code && r.type === '盤點庫存'); }
     if (exMy) { exMy.qty = recInfo.qty; exMy.handQty = recInfo.handQty; } 
     if (exAll) { exAll.qty = recInfo.qty; exAll.handQty = recInfo.handQty; } 
     if (!exMy && !exAll) { loadUserRecords(); return; } 
@@ -332,28 +160,15 @@ export function pushRecordLocally(recInfo) {
 }
 
 export function updateOnlineUI() { 
-  const checkedInput = document.querySelector('input[name="actionType"]:checked');
-  if (!checkedInput) return;
+  const checkedInput = document.querySelector('input[name="actionType"]:checked'); if (!checkedInput) return;
+  const areaManual = document.getElementById('area-manual'); const areaBarcode = document.getElementById('area-barcode');
   
   if (checkedInput.value === '手動') {
-    const areaManual = document.getElementById('area-manual'); 
-    const areaBarcode = document.getElementById('area-barcode');
-    if (areaManual) areaManual.classList.remove('d-none'); 
-    if (areaBarcode) areaBarcode.classList.add('d-none');
-    
-    // 🌟 新增：切換到手動搜尋時，游標自動跳到搜尋框
-    const searchInput = document.getElementById('online-drug-search');
-    if (searchInput) setTimeout(() => searchInput.focus(), 10);
-    
+    if (areaManual) areaManual.classList.remove('d-none'); if (areaBarcode) areaBarcode.classList.add('d-none');
+    const searchInput = document.getElementById('online-drug-search'); if (searchInput) setTimeout(() => searchInput.focus(), 10);
   } else {
-    const areaManual = document.getElementById('area-manual'); 
-    const areaBarcode = document.getElementById('area-barcode');
-    if (areaManual) areaManual.classList.add('d-none'); 
-    if (areaBarcode) areaBarcode.classList.remove('d-none');
-    
-    // 🌟 順便用 setTimeout 保護條碼框的 Focus，避免畫面渲染太快導致焦點遺失
-    const barcodeInput = document.getElementById('online-barcode'); 
-    if (barcodeInput) setTimeout(() => barcodeInput.focus(), 10);
+    if (areaManual) areaManual.classList.add('d-none'); if (areaBarcode) areaBarcode.classList.remove('d-none');
+    const barcodeInput = document.getElementById('online-barcode'); if (barcodeInput) setTimeout(() => barcodeInput.focus(), 10);
   }
 }
 
@@ -361,109 +176,58 @@ export function switchMonthlyTab(tabId) {
   document.querySelectorAll('.monthly-content-section').forEach(s => s.classList.add('d-none'));
   document.getElementById(tabId).classList.remove('d-none');
   const tabsContainer = document.getElementById('monthly-tabs');
-  if (tabsContainer) { 
-    tabsContainer.querySelectorAll('.nav-link').forEach(btn => { 
-      btn.classList.remove('active', 'bg-academic', 'text-white'); 
-      btn.classList.add('bg-white', 'text-academic'); 
-    }); 
-  }
-  const activeBtnId = tabId.replace('tab-', 'btn-tab-'); 
-  const activeBtn = document.getElementById(activeBtnId);
-  if (activeBtn) { 
-    activeBtn.classList.remove('bg-white', 'text-academic'); 
-    activeBtn.classList.add('active', 'bg-academic', 'text-white'); 
-  }
-  
+  if (tabsContainer) { tabsContainer.querySelectorAll('.nav-link').forEach(btn => { btn.classList.remove('active', 'bg-academic', 'text-white'); btn.classList.add('bg-white', 'text-academic'); }); }
+  const activeBtnId = tabId.replace('tab-', 'btn-tab-'); const activeBtn = document.getElementById(activeBtnId);
+  if (activeBtn) { activeBtn.classList.remove('bg-white', 'text-academic'); activeBtn.classList.add('active', 'bg-academic', 'text-white'); }
   if (tabId === 'tab-records') renderAllRecordLists();
   if (tabId === 'tab-dashboard') renderMonthlyDashboard();
-  
-  // 🌟 終極修正：當切換到「線上作業」時，強制鎖定為掃描條碼
-  if (tabId === 'tab-online') {
-    switchOnlineSubTab('input'); 
-    document.querySelectorAll('input[name="actionType"]').forEach(radio => {
-      if (radio.value !== '手動') radio.checked = true;
-    });
-    updateOnlineUI();
-  }
+  if (tabId === 'tab-online') { switchOnlineSubTab('input'); document.querySelectorAll('input[name="actionType"]').forEach(radio => { if (radio.value !== '手動') radio.checked = true; }); updateOnlineUI(); }
 }
 
-// 🌟 修正問題 3：明確劃分切換標籤時的渲染邏輯
 export function switchDeskSubTab(view) { 
-  const btnIn = document.getElementById('btn-desk-sub-input');
-  const btnList = document.getElementById('btn-desk-sub-list'); 
+  const btnIn = document.getElementById('btn-desk-sub-input'), btnList = document.getElementById('btn-desk-sub-list'); 
   if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
   if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
   
   if (view === 'input') { 
     if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; 
-    document.getElementById('area-desk-input').classList.remove('d-none'); 
-    document.getElementById('area-desk-list').classList.add('d-none'); 
-    renderMonthlyDesk(); // 確保每次切過來都強制更新未盤點清單
+    document.getElementById('area-desk-input').classList.remove('d-none'); document.getElementById('area-desk-list').classList.add('d-none'); 
+    renderMonthlyDesk(); 
   } else { 
     if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; 
-    document.getElementById('area-desk-input').classList.add('d-none'); 
-    document.getElementById('area-desk-list').classList.remove('d-none'); 
-    renderAllRecordLists(); // 確保每次切過來都顯示最新的紀錄
+    document.getElementById('area-desk-input').classList.add('d-none'); document.getElementById('area-desk-list').classList.remove('d-none'); 
+    renderAllRecordLists(); 
   } 
 }
 
 export function switchStockSubTab(view) { 
   const btnIn = document.getElementById('btn-stock-sub-input'), btnList = document.getElementById('btn-stock-sub-list'), btnAll = document.getElementById('btn-stock-sub-all'); 
-  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
-  if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
-  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
-  
+  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
   document.getElementById('area-stock-input').classList.add('d-none'); document.getElementById('area-stock-list').classList.add('d-none'); document.getElementById('area-stock-all').classList.add('d-none');
   
-  if (view === 'input') { 
-    if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; 
-    document.getElementById('area-stock-input').classList.remove('d-none'); 
-  } else if (view === 'list') { 
-    if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; 
-    document.getElementById('area-stock-list').classList.remove('d-none'); renderAllRecordLists(); 
-  } else if (view === 'all') {
-    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; 
-    document.getElementById('area-stock-all').classList.remove('d-none'); renderAllRecordLists();
-  }
+  if (view === 'input') { if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; document.getElementById('area-stock-input').classList.remove('d-none'); 
+  } else if (view === 'list') { if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; document.getElementById('area-stock-list').classList.remove('d-none'); renderAllRecordLists(); 
+  } else if (view === 'all') { if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; document.getElementById('area-stock-all').classList.remove('d-none'); renderAllRecordLists(); }
 }
 
 export function switchOnlineSubTab(view) { 
   const btnIn = document.getElementById('btn-online-sub-input'), btnList = document.getElementById('btn-online-sub-list'), btnAll = document.getElementById('btn-online-sub-all'); 
-  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
-  if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
-  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
-  
+  if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2'; 
   document.getElementById('area-online-input').classList.add('d-none'); document.getElementById('area-online-list').classList.add('d-none'); document.getElementById('area-online-all').classList.add('d-none');
   
-  if (view === 'input') { 
-    if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; 
-    document.getElementById('area-online-input').classList.remove('d-none'); 
-  } else if (view === 'list') { 
-    if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; 
-    document.getElementById('area-online-list').classList.remove('d-none'); renderAllRecordLists(); 
-  } else if (view === 'all') {
-    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; 
-    document.getElementById('area-online-all').classList.remove('d-none'); renderAllRecordLists();
-  }
+  if (view === 'input') { if(btnIn) btnIn.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; document.getElementById('area-online-input').classList.remove('d-none'); 
+  } else if (view === 'list') { if(btnList) btnList.className = 'nav-link active fw-bold border bg-success text-white shadow-sm py-2'; document.getElementById('area-online-list').classList.remove('d-none'); renderAllRecordLists(); 
+  } else if (view === 'all') { if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; document.getElementById('area-online-all').classList.remove('d-none'); renderAllRecordLists(); }
 }
 
-// 🌟 新增：軌跡紀錄次分頁切換
 export function switchRecordsSubTab(view) {
   const btnMy = document.getElementById('btn-records-sub-my'), btnAll = document.getElementById('btn-records-sub-all');
-  if(btnMy) btnMy.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2';
-  if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2';
-  
+  if(btnMy) btnMy.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; if(btnAll) btnAll.className = 'nav-link fw-bold border text-primary bg-white shadow-sm py-2';
   const areaMy = document.getElementById('area-records-my'), areaAll = document.getElementById('area-records-all');
-  if (areaMy) areaMy.classList.add('d-none');
-  if (areaAll) areaAll.classList.add('d-none');
+  if (areaMy) areaMy.classList.add('d-none'); if (areaAll) areaAll.classList.add('d-none');
   
-  if (view === 'my') {
-    if(btnMy) btnMy.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2';
-    if (areaMy) areaMy.classList.remove('d-none');
-  } else {
-    if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2';
-    if (areaAll) areaAll.classList.remove('d-none');
-  }
+  if (view === 'my') { if(btnMy) btnMy.className = 'nav-link active fw-bold border bg-academic text-white shadow-sm py-2'; if (areaMy) areaMy.classList.remove('d-none');
+  } else { if(btnAll) btnAll.className = 'nav-link active fw-bold border bg-primary text-white shadow-sm py-2'; if (areaAll) areaAll.classList.remove('d-none'); }
   renderAllRecordLists();
 }
 
@@ -475,168 +239,78 @@ export function handleOnlineSearch() { const kw = document.getElementById('onlin
 
 export function handleTableSelectChange() { renderMonthlyDesk(); renderAllRecordLists(); }
 
-// 🌟 修正問題 3 的核心：輸入區「永遠只」顯示未盤點的藥品，徹底解決重疊與錯亂
 export function renderMonthlyDesk() { 
-  const tableId = document.getElementById('monthly-table-select').value; 
-  const area = document.getElementById('monthly-desk-area'); 
-  if (!tableId) { area.innerHTML = ''; return; } 
-  const tableData = monthlyTables.find(t => t.id === tableId); 
-  if (!tableData) return; 
+  const tableId = document.getElementById('monthly-table-select').value; const area = document.getElementById('monthly-desk-area'); if (!tableId) { area.innerHTML = ''; return; } 
+  const tableData = monthlyTables.find(t => t.id === tableId); if (!tableData) return; 
   
-  // 只撈取還沒盤點的藥品
   const uncountedItems = tableData.items.filter(i => !i.hasCounted); 
+  const uncountedBadge = document.getElementById('count-desk-uncounted'); if (uncountedBadge) uncountedBadge.innerText = uncountedItems.length; 
+  if(uncountedItems.length === 0) { area.innerHTML = '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>'; return; }
   
-  const uncountedBadge = document.getElementById('count-desk-uncounted');
-  if (uncountedBadge) uncountedBadge.innerText = uncountedItems.length; 
-  
-  if(uncountedItems.length === 0) {
-    area.innerHTML = '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>';
-    return;
-  }
-  
-  const uniqueDrugs = []; 
-  tableData.items.forEach(item => { if (!uniqueDrugs.includes(item.drugCode)) uniqueDrugs.push(item.drugCode); }); 
+  const uniqueDrugs = []; tableData.items.forEach(item => { if (!uniqueDrugs.includes(item.drugCode)) uniqueDrugs.push(item.drugCode); }); 
   const getDrugColor = (code) => { const index = uniqueDrugs.indexOf(code); return index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd'; }; 
   
   let html = ''; 
   uncountedItems.forEach(item => { 
-    const borderColor = getDrugColor(item.drugCode); 
-    const encodedName = btoa(encodeURIComponent(item.drugName || '')); // 處理藥名有單引號的問題
-    
-    // 🚀 動態生成學術提示區塊 (有資料才顯示，沒資料保持乾淨)
+    const borderColor = getDrugColor(item.drugCode); const encodedName = btoa(encodeURIComponent(item.drugName || '')); 
     let hintHtml = '';
-    if (item.desc && item.desc !== '') {
-      hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點說明：${item.desc}</div>`;
-    }
-    if (item.remark && item.remark !== '') {
-      hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.remark}</div>`;
-    }
+    if (item.desc && item.desc !== '') hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點說明：${item.desc}</div>`;
+    if (item.remark && item.remark !== '') hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.remark}</div>`;
 
-    html += `<div class="card drug-card mb-3 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;">
-      <div class="card-body p-3">
-        <div class="fw-bold fs-5 text-dark mb-2">${item.drugName}</div>
-        <div class="d-flex flex-wrap gap-1 mb-2">
-          <span class="badge bg-light text-dark border border-secondary">儲位: ${item.locCode}</span>
-          <span class="badge bg-light text-dark border border-secondary">代碼: ${item.drugCode}</span>
-        </div>
-        
-        ${hintHtml ? `<div class="bg-light rounded p-2 mb-2 border border-light-subtle">${hintHtml}</div>` : ''}
-
-        <div class="input-group shadow-sm">
-          <input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value="">
-          
-          <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('m-qty-${item.locCode}', decodeURIComponent(atob('${encodedName}')))"><i class="bi bi-calculator fs-5"></i></button>
-          
-          <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', decodeURIComponent(atob('${encodedName}')), '${item.tableId}')">確認送出</button>
-        </div>
-      </div>
-    </div>`; 
+    html += `<div class="card drug-card mb-3 shadow-sm border-0" style="border-left: 6px solid ${borderColor} !important;"><div class="card-body p-3"><div class="fw-bold fs-5 text-dark mb-2">${item.drugName}</div><div class="d-flex flex-wrap gap-1 mb-2"><span class="badge bg-light text-dark border border-secondary">儲位: ${item.locCode}</span><span class="badge bg-light text-dark border border-secondary">代碼: ${item.drugCode}</span></div>${hintHtml ? `<div class="bg-light rounded p-2 mb-2 border border-light-subtle">${hintHtml}</div>` : ''}<div class="input-group shadow-sm"><input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value=""><button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('m-qty-${item.locCode}', decodeURIComponent(atob('${encodedName}')))"><i class="bi bi-calculator fs-5"></i></button><button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', decodeURIComponent(atob('${encodedName}')), '${item.tableId}')">確認送出</button></div></div></div>`; 
   }); 
   area.innerHTML = html;
 }
 
 export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
-  const inputEl = document.getElementById(`m-qty-${loc}`); const qty = inputEl.value; 
-  if(qty === '' || qty < 0) return alert('請輸入有效數量'); 
-  const tableId = document.getElementById('monthly-table-select').value; 
-  const tableData = monthlyTables.find(t => t.id === tableId); if (!tableData) return; 
+  const inputEl = document.getElementById(`m-qty-${loc}`); const qty = inputEl.value; if(qty === '' || qty < 0) return alert('請輸入有效數量'); 
+  const tableId = document.getElementById('monthly-table-select').value; const tableData = monthlyTables.find(t => t.id === tableId); if (!tableData) return; 
   const item = tableData.items.find(i => i.locCode === loc); if (!item) return;
   
-  // 樂觀更新：直接當作成功，寫入本地端資料
-  item.hasCounted = true; 
-  item.countedQty = qty; 
-  item.countedUser = session.name;
+  item.hasCounted = true; item.countedQty = qty; item.countedUser = session.name;
   item.countedTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   
   if (navigator.vibrate) navigator.vibrate(50);
-  
   const uncountedLength = tableData.items.filter(i => !i.hasCounted).length; 
-  const uncountedBadge = document.getElementById('count-desk-uncounted');
-  if (uncountedBadge) uncountedBadge.innerText = uncountedLength;
-  
+  const uncountedBadge = document.getElementById('count-desk-uncounted'); if (uncountedBadge) uncountedBadge.innerText = uncountedLength;
   const card = inputEl.closest('.drug-card'); 
   if (card) { 
     card.style.display = 'none'; 
-    setTimeout(() => {
-      card.remove();
-      if (uncountedLength === 0) { 
-        const area = document.getElementById('monthly-desk-area');
-        if (area) area.innerHTML = '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>'; 
-      } 
-    }, 10);
+    setTimeout(() => { card.remove(); if (uncountedLength === 0) { const area = document.getElementById('monthly-desk-area'); if (area) area.innerHTML = '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>'; } }, 10);
   } 
   
-  // 🌟 修改點：背景發送，移除所有報錯彈窗，不再還原狀態
   fetchBackend('submitInventory', { mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台', actionSrc: '', dispType: '', drugCode: dCode, drugName: dName, handQty: qty, tableId: tId, locCode: loc })
-    .then((res) => { 
-      if (res && res.success) { pushRecordLocally(res.resultRecord); } 
-    }).catch(err => { 
-      console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); 
-    }); 
+    .then((res) => { if (res && res.success) { pushRecordLocally(res.resultRecord); } }).catch(err => { console.warn('背景寫入可能有延遲或連線異常，但前端視為成功'); }); 
 }
 
 export function renderAllRecordLists() { 
-  // 1. 庫存分頁紀錄
-  let stockRecords = myRecordsData.filter(r => r.type === '盤點庫存'); 
-  let stockAllRecords = allRecordsData.filter(r => r.type === '盤點庫存');
-  if (activeRecordFilters['stock']) {
-    stockRecords = stockRecords.filter(r => r.code === activeRecordFilters['stock']); 
-    stockAllRecords = stockAllRecords.filter(r => r.code === activeRecordFilters['stock']); 
-  }
-  const stockCount = document.getElementById('count-stock-counted'); if (stockCount) stockCount.innerText = stockRecords.length; 
-  const stockAllCount = document.getElementById('count-stock-all'); if (stockAllCount) stockAllCount.innerText = stockAllRecords.length;
-  
-  const stockArea = document.getElementById('stock-records-area'); if (stockArea) stockArea.innerHTML = generateRecordCards(stockRecords, '本月尚未輸入庫存盤點', true); 
-  const stockAllArea = document.getElementById('stock-all-records-area'); if (stockAllArea) stockAllArea.innerHTML = generateRecordCards(stockAllRecords, '本月尚無任何人輸入庫存', false); 
+  let stockRecords = myRecordsData.filter(r => r.type === '盤點庫存'); let stockAllRecords = allRecordsData.filter(r => r.type === '盤點庫存');
+  if (activeRecordFilters['stock']) { stockRecords = stockRecords.filter(r => r.code === activeRecordFilters['stock']); stockAllRecords = stockAllRecords.filter(r => r.code === activeRecordFilters['stock']); }
+  const stockCount = document.getElementById('count-stock-counted'); if (stockCount) stockCount.innerText = stockRecords.length; const stockAllCount = document.getElementById('count-stock-all'); if (stockAllCount) stockAllCount.innerText = stockAllRecords.length;
+  const stockArea = document.getElementById('stock-records-area'); if (stockArea) stockArea.innerHTML = generateRecordCards(stockRecords, '本月尚未輸入庫存盤點', true); const stockAllArea = document.getElementById('stock-all-records-area'); if (stockAllArea) stockAllArea.innerHTML = generateRecordCards(stockAllRecords, '本月尚無任何人輸入庫存', false); 
 
-// 2. 調劑台(藥架)分頁紀錄
   const tIdSelect = document.getElementById('monthly-table-select'); const tId = tIdSelect ? tIdSelect.value : ''; 
-  
-  // 🌟 將 myRecordsData 改成 allRecordsData，這樣就能顯示該區所有的盤點紀錄
   let deskRecords = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); 
-  
   if (activeRecordFilters['desk']) deskRecords = deskRecords.filter(r => r.code === activeRecordFilters['desk']); 
   const deskCount = document.getElementById('count-desk-counted'); if (deskCount) deskCount.innerText = deskRecords.length; 
-  const deskArea = document.getElementById('desk-records-area'); if (deskArea) deskArea.innerHTML = generateRecordCards(deskRecords, '本區本月尚無盤點紀錄', true);
+  const deskArea = document.getElementById('desk-records-area'); if (deskArea) deskArea.innerHTML = generateRecordCards(deskRecords, '本區本月尚無盤點紀錄', true); 
 
-  // 3. 線上區紀錄
-  let onlineRecords = myRecordsData.filter(r => r.type === '線上調劑'); 
-  let onlineAllRecords = allRecordsData.filter(r => r.type === '線上調劑');
-  if (activeRecordFilters['online']) {
-    onlineRecords = onlineRecords.filter(r => r.code === activeRecordFilters['online']); 
-    onlineAllRecords = onlineAllRecords.filter(r => r.code === activeRecordFilters['online']); 
-  }
-  const onlineCount = document.getElementById('count-online-counted'); if (onlineCount) onlineCount.innerText = onlineRecords.length; 
-  const onlineAllCount = document.getElementById('count-online-all'); if (onlineAllCount) onlineAllCount.innerText = onlineAllRecords.length;
-  
-  const onlineArea = document.getElementById('online-records-area'); if (onlineArea) onlineArea.innerHTML = generateRecordCards(onlineRecords, '本月尚無線上調劑紀錄', true); 
-  const onlineAllArea = document.getElementById('online-all-records-area'); if (onlineAllArea) onlineAllArea.innerHTML = generateRecordCards(onlineAllRecords, '本月尚無任何線上調劑紀錄', false); 
+  let onlineRecords = myRecordsData.filter(r => r.type === '線上調劑'); let onlineAllRecords = allRecordsData.filter(r => r.type === '線上調劑');
+  if (activeRecordFilters['online']) { onlineRecords = onlineRecords.filter(r => r.code === activeRecordFilters['online']); onlineAllRecords = onlineAllRecords.filter(r => r.code === activeRecordFilters['online']); }
+  const onlineCount = document.getElementById('count-online-counted'); if (onlineCount) onlineCount.innerText = onlineRecords.length; const onlineAllCount = document.getElementById('count-online-all'); if (onlineAllCount) onlineAllCount.innerText = onlineAllRecords.length;
+  const onlineArea = document.getElementById('online-records-area'); if (onlineArea) onlineArea.innerHTML = generateRecordCards(onlineRecords, '本月尚無線上調劑紀錄', true); const onlineAllArea = document.getElementById('online-all-records-area'); if (onlineAllArea) onlineAllArea.innerHTML = generateRecordCards(onlineAllRecords, '本月尚無任何線上調劑紀錄', false); 
 
-  // 4. 「我的紀錄」與「全域紀錄」軌跡
-  let allMyRecords = [...myRecordsData]; 
-  let allGlobalRecords = [...allRecordsData]; 
+  let allMyRecords = [...myRecordsData]; let allGlobalRecords = [...allRecordsData]; 
   const selectedDate = document.getElementById('filter-date-records') ? document.getElementById('filter-date-records').value : '';
   
-  if (activeRecordFilters['records']) {
-    allMyRecords = allMyRecords.filter(r => r.code === activeRecordFilters['records']);
-    allGlobalRecords = allGlobalRecords.filter(r => r.code === activeRecordFilters['records']);
-  }
-  
+  if (activeRecordFilters['records']) { allMyRecords = allMyRecords.filter(r => r.code === activeRecordFilters['records']); allGlobalRecords = allGlobalRecords.filter(r => r.code === activeRecordFilters['records']); }
   if (selectedDate) {
-    const dFilter = r => {
-      if (!r.tStamp) return false;
-      const dStr = `${new Date(r.tStamp).getFullYear()}-${String(new Date(r.tStamp).getMonth() + 1).padStart(2, '0')}-${String(new Date(r.tStamp).getDate()).padStart(2, '0')}`;
-      return dStr === selectedDate;
-    };
-    allMyRecords = allMyRecords.filter(dFilter);
-    allGlobalRecords = allGlobalRecords.filter(dFilter);
+    const dFilter = r => { if (!r.tStamp) return false; const dStr = `${new Date(r.tStamp).getFullYear()}-${String(new Date(r.tStamp).getMonth() + 1).padStart(2, '0')}-${String(new Date(r.tStamp).getDate()).padStart(2, '0')}`; return dStr === selectedDate; };
+    allMyRecords = allMyRecords.filter(dFilter); allGlobalRecords = allGlobalRecords.filter(dFilter);
   }
 
-  const totalCount = document.getElementById('user-records-count'); if (totalCount) totalCount.innerText = allMyRecords.length; 
-  const allCount = document.getElementById('all-records-count'); if (allCount) allCount.innerText = allGlobalRecords.length; 
-  
-  const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); 
-  const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', false); // 別人的紀錄不開放直接修改
+  const totalCount = document.getElementById('user-records-count'); if (totalCount) totalCount.innerText = allMyRecords.length; const allCount = document.getElementById('all-records-count'); if (allCount) allCount.innerText = allGlobalRecords.length; 
+  const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', false); 
 }
 
 export function generateRecordCards(recordsArray, emptyMsg, allowEdit) { 
@@ -644,32 +318,28 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
   let html = ''; 
   recordsArray.forEach(record => { 
     const isVoid = record.status === '作廢';
-    let qtyStr = record.handQty; let colorClass = 'text-primary'; let dispBadge = ''; 
-    let cardBg = ''; let borderClass = 'border-info'; 
+    let qtyStr = record.handQty; let colorClass = 'text-primary'; let dispBadge = ''; let cardBg = ''; let borderClass = 'border-info'; 
 
-    if (record.dispType === '調劑') { 
-      qtyStr = `-${record.handQty}`; colorClass = 'text-danger'; dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; cardBg = 'background-color: #fff0f4;'; borderClass = 'border-danger'; 
-    } 
-    else if (record.dispType === '退藥') { 
-      qtyStr = `+${record.handQty}`; colorClass = 'text-success'; dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; borderClass = 'border-success'; 
-    } 
+    if (record.dispType === '調劑') { qtyStr = `-${record.handQty}`; colorClass = 'text-danger'; dispBadge = `<span class="badge bg-danger ms-1">調劑</span>`; cardBg = 'background-color: #fff0f4;'; borderClass = 'border-danger'; } 
+    else if (record.dispType === '退藥') { qtyStr = `+${record.handQty}`; colorClass = 'text-success'; dispBadge = `<span class="badge bg-success ms-1">退藥</span>`; borderClass = 'border-success'; } 
     
     const cardStyle = isVoid ? `opacity: 0.6; filter: grayscale(100%); ${cardBg}` : cardBg;
     const badgeHtml = isVoid ? `<span class="badge bg-secondary ms-1">已作廢</span>` : dispBadge;
     const locInfo = record.loc ? ` | 儲位: ${record.loc}` : ''; 
     
-    const userInfo = record.userName ? ` <span class="badge bg-light text-dark border ms-1"><i class="bi bi-person-fill"></i> ${record.userName}</span>` : '';
+    // 🌟 在卡片上加入建立者與修改者的資訊標籤
+    const userInfo = record.userName ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-person-fill"></i> 建立: ${record.userName}</span>` : '';
+    const updateInfo = (record.updateUser && record.updateTime) ? `<span class="badge bg-warning text-dark border ms-1"><i class="bi bi-pencil-square"></i> 修改: ${record.updateUser} (${record.updateTime})</span>` : '';
     
     const actionHtml = isVoid
       ? `<button class="btn btn-sm btn-outline-success py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '成立')">還原</button>`
       : `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editRecord('${record.sn}')">修改</button><button class="btn btn-sm btn-outline-danger py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '作廢')">作廢</button>`;
     
-    // 🌟 關鍵修改：只要 allowEdit 為 true，全部紀錄都會顯示修改/作廢按鈕
     const editButtons = allowEdit 
       ? `<div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top"><div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass}">${qtyStr}</div><div>${actionHtml}</div></div>` 
       : `<div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass} mt-1 pt-1 border-top">${qtyStr}</div>`; 
     
-    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 ${borderClass}" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary mt-1" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span>${userInfo}</div>${editButtons}</div></div>`; 
+    html += `<div class="card mb-2 shadow-sm border-0 border-start border-4 ${borderClass}" style="${cardStyle}"><div class="card-body p-2"><div class="d-flex justify-content-between mb-1"><div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${record.name}</div><div class="small text-muted" style="font-size:0.75rem;">${record.time}</div></div><div class="small text-secondary mt-1" style="font-size:0.8rem;"><span class="badge bg-secondary">${record.type}</span>${badgeHtml}<span class="ms-1">代碼: ${record.code}${locInfo}</span><div class="mt-1">${userInfo}${updateInfo}</div></div>${editButtons}</div></div>`; 
   }); 
   return html; 
 }
@@ -677,17 +347,10 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
 export function handleRecordFilterSearch(tabKey) { const kw = document.getElementById(`filter-input-${tabKey}`).value.toLowerCase().trim(); const dropdown = document.getElementById(`filter-dropdown-${tabKey}`); let sourceData = []; if (tabKey === 'stock') sourceData = myRecordsData.filter(r => r.type === '盤點庫存'); else if (tabKey === 'desk') { const tId = document.getElementById('monthly-table-select').value; sourceData = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); } else if (tabKey === 'online') sourceData = myRecordsData.filter(r => r.type === '線上調劑'); else if (tabKey === 'records') sourceData = myRecordsData; const uniqueDrugs = []; const seen = new Set(); sourceData.forEach(r => { if (!seen.has(r.code)) { seen.add(r.code); uniqueDrugs.push({ code: r.code, name: r.name }); } }); let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw)) : uniqueDrugs; if (kw && filtered.length > 0) { filtered.sort((a, b) => { const getScore = (d) => { let score = 999; if (d.code.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.code.toLowerCase().indexOf(kw)); if (d.name.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.name.toLowerCase().indexOf(kw)); return score; }; return getScore(a) - getScore(b); }); } if (filtered.length > 0) { dropdown.innerHTML = filtered.slice(0, 10).map(d => `<div class="search-dropdown-item" onclick="applyRecordFilter('${tabKey}', '${d.code}', '${d.name.replace(/'/g, "\\'")}')"><div class="fw-bold text-academic">${d.name}</div><div class="small text-muted">${d.code}</div></div>`).join(''); dropdown.style.display = 'block'; } else { dropdown.innerHTML = '<div class="p-2 text-muted small">清單中無相符藥品</div>'; dropdown.style.display = 'block'; } }
 export function applyRecordFilter(tabKey, code, name) { activeRecordFilters[tabKey] = code; document.getElementById(`filter-input-${tabKey}`).value = `${name} (${code})`; document.getElementById(`filter-dropdown-${tabKey}`).style.display = 'none'; renderAllRecordLists(); }
 export function clearRecordFilter(tabKey) { activeRecordFilters[tabKey] = null; document.getElementById(`filter-input-${tabKey}`).value = ''; document.getElementById(`filter-dropdown-${tabKey}`).style.display = 'none'; renderAllRecordLists(); }
-// 🌟 3. 全域點擊監聽 (賦予條碼框「焦點霸體」)
 document.addEventListener('click', function(e) { 
-  // 處理搜尋下拉選單的關閉
-  if (!e.target.closest('.position-relative')) { 
-    document.querySelectorAll('.search-dropdown').forEach(d => d.style.display = 'none'); 
-  } 
-
-  // 🌟 實體條碼機友善設計：只要在條碼模式下，點擊畫面空白處就強制鎖定焦點
+  if (!e.target.closest('.position-relative')) { document.querySelectorAll('.search-dropdown').forEach(d => d.style.display = 'none'); } 
   const barcodeArea = document.getElementById('area-barcode');
   if (barcodeArea && !barcodeArea.classList.contains('d-none')) {
-    // 確保點擊的不是別的按鈕或輸入框 (例如切換手動/條碼的按鈕)
     if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
       const bcInput = document.getElementById('online-barcode');
       if (bcInput) setTimeout(() => bcInput.focus(), 10);
@@ -695,217 +358,112 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// ==========================================
-// 🌟 升級版月盤點紀錄修改數量
-// ==========================================
 export async function editRecord(sn) {
-  // 🌟 關鍵修改：從 allRecordsData 尋找，支援修改同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
-  
   const newQty = await new Promise(resolve => {
     window.resolveEditQtyModal = resolve;
     document.getElementById('edit-qty-drug-name').innerText = record.name;
     document.getElementById('edit-qty-old').innerText = record.handQty;
-    const input = document.getElementById('edit-qty-input');
-    input.value = record.handQty;
+    const input = document.getElementById('edit-qty-input'); input.value = record.handQty;
     new window.bootstrap.Modal(document.getElementById('editQtyModal')).show();
-    
-    document.getElementById('editQtyModal').addEventListener('shown.bs.modal', () => { 
-      input.focus(); input.select(); 
-    }, { once: true });
+    document.getElementById('editQtyModal').addEventListener('shown.bs.modal', () => { input.focus(); input.select(); }, { once: true });
   });
 
   if (newQty === null || newQty === "") return;
-  
-  // 樂觀更新：直接改寫畫面
   record.handQty = newQty; 
-  
-  // 🌟 如果這筆剛好是自己的紀錄，也同步更新 myRecordsData
   const myRec = myRecordsData.find(r => r.sn === sn);
   if (myRec) myRec.handQty = newQty;
-  
   renderAllRecordLists(); 
   
-  monthlyTables.forEach(t => t.items.forEach(i => {
-    if (i.drugCode === record.code && i.locCode === record.loc) i.countedQty = newQty;
-  }));
+  monthlyTables.forEach(t => t.items.forEach(i => { if (i.drugCode === record.code && i.locCode === record.loc) i.countedQty = newQty; }));
   renderMonthlyDesk();
 
   fetchBackend('updateMonthlyRecord', { sn: sn, newQty: newQty, dispType: record.dispType, userId: session.id, userName: session.name })
-    .then(res => {
-      refreshDashboardDataSilently();
-    }).catch(err => { 
-      console.warn('修改要求已送出，前端略過錯誤'); 
-    });
+    .then(res => { refreshDashboardDataSilently(); }).catch(err => { console.warn('修改要求已送出，前端略過錯誤'); });
 }
 
-// ==========================================
-// 🌟 升級版月盤點紀錄作廢
-// ==========================================
 export async function toggleMonthlyRecordStatus(sn, newStatus) {
-  // 🌟 關鍵修改：從 allRecordsData 尋找，支援作廢同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
 
   if (newStatus === '作廢') {
     const isConfirmed = await new Promise(resolve => {
-      window.resolveVoidModal = resolve;
-      document.getElementById('void-drug-name').innerText = record.name;
-      document.getElementById('void-drug-info').innerText = record.handQty;
+      window.resolveVoidModal = resolve; document.getElementById('void-drug-name').innerText = record.name; document.getElementById('void-drug-info').innerText = record.handQty;
       new window.bootstrap.Modal(document.getElementById('voidConfirmModal')).show();
     });
     if (!isConfirmed) return;
   }
 
-  // 樂觀更新：直接作廢
   record.status = newStatus;
-  
-  // 🌟 如果這筆剛好是自己的紀錄，也同步更新 myRecordsData
   const myRec = myRecordsData.find(r => r.sn === sn);
   if (myRec) myRec.status = newStatus;
-  
   renderAllRecordLists();
 
-  monthlyTables.forEach(t => t.items.forEach(i => {
-    if (i.drugCode === record.code && i.locCode === record.loc) {
-      i.hasCounted = (newStatus === '成立');
-    }
-  }));
+  monthlyTables.forEach(t => t.items.forEach(i => { if (i.drugCode === record.code && i.locCode === record.loc) { i.hasCounted = (newStatus === '成立'); } }));
   renderMonthlyDesk();
 
   fetchBackend('modifyMonthlyRecordStatus', { sn: sn, newStatus: newStatus, userId: session.id, userName: session.name })
-    .then(res => {
-      refreshDashboardDataSilently();
-    }).catch(err => { 
-      console.warn('狀態更新已送出，前端略過錯誤'); 
-    });
+    .then(res => { refreshDashboardDataSilently(); }).catch(err => { console.warn('狀態更新已送出，前端略過錯誤'); });
 }
 
 export function refreshMonthlyData() {
   toggleLoader(true);
   fetchBackend('getMonthlyInitData').then(res => {
-    monthlyDrugMaster = res.drugMaster;
-    monthlyTables = res.tables;
-    loadUserRecords(() => {
-      renderMonthlyDesk();
-      renderMonthlyDashboard();
-      toggleLoader(false);
-      showToast('資料已同步至最新');
-    });
+    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+    loadUserRecords(() => { renderMonthlyDesk(); renderMonthlyDashboard(); toggleLoader(false); showToast('資料已同步至最新'); });
   }).catch(err => { toggleLoader(false); alert("更新失敗"); });
 }
 
 export function refreshDashboardData() {
-  toggleLoader(true);
-  fetchBackend('getMonthlyInitData').then(res => {
-    monthlyTables = res.tables;
-    renderMonthlyDashboard();
-    toggleLoader(false);
-    showToast('進度已同步更新'); 
-  }).catch(err => { toggleLoader(false); alert("更新失敗"); });
+  toggleLoader(true); fetchBackend('getMonthlyInitData').then(res => { monthlyTables = res.tables; renderMonthlyDashboard(); toggleLoader(false); showToast('進度已同步更新'); }).catch(err => { toggleLoader(false); alert("更新失敗"); });
 }
 
-export function refreshDashboardDataSilently() {
-  fetchBackend('getMonthlyInitData').then(res => {
-    monthlyTables = res.tables;
-    renderMonthlyDashboard();
-  }).catch(e => console.warn('背景更新進度失敗'));
-}
+export function refreshDashboardDataSilently() { fetchBackend('getMonthlyInitData').then(res => { monthlyTables = res.tables; renderMonthlyDashboard(); }).catch(e => console.warn('背景更新進度失敗')); }
 
 export function renderMonthlyDashboard() {
-  const unfinishedArea = document.getElementById('dashboard-unfinished');
-  const finishedArea = document.getElementById('dashboard-finished');
+  const unfinishedArea = document.getElementById('dashboard-unfinished'); const finishedArea = document.getElementById('dashboard-finished');
   if(!unfinishedArea || !finishedArea) return;
-
   let unfinishedHtml = ''; let finishedHtml = '';
 
   monthlyTables.forEach(table => {
-    const total = table.items.length;
-    const counted = table.items.filter(i => i.hasCounted).length;
-    const percent = total > 0 ? Math.round((counted / total) * 100) : 0;
-    const isComplete = percent === 100;
-    
-  // 🌟 升級版：加上黃色底色、左側粗邊框與粗體字的醒目提示
-  const tableDesc = table.desc ? `
-    <div class="mt-2 px-2 py-1 rounded text-dark fw-bold shadow-sm" style="background-color: #fff3cd; border-left: 4px solid #ffc107; font-size: 0.85rem;">
-      <i class="bi bi-exclamation-circle-fill text-warning me-1" style="font-size: 1rem;"></i>${table.desc}
-    </div>` : '';
-
-    const cardHtml = `
-      <div class="card mb-3 shadow-sm border-0 border-start border-4 ${isComplete ? 'border-success' : 'border-warning'}" 
-           onclick="enterTableInventory('${table.id}', '${table.name}')" style="cursor: pointer;">
-        <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            
-            <div>
-              <div class="fw-bold text-dark fs-5">${table.name}</div>
-              ${tableDesc}
-            </div>
-            
-            <span class="badge ${isComplete ? 'bg-success' : 'bg-academic'}">${percent}%</span>
-          </div>
-          <div class="progress mb-2" style="height: 12px;">
-            <div class="progress-bar ${isComplete ? 'bg-success' : 'bg-warning'}" style="width: ${percent}%"></div>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-3">
-            <div class="small text-secondary">已盤: ${counted} / ${total}</div>
-            <div>
-              <button class="btn btn-sm btn-outline-secondary me-2 fw-bold" onclick="event.stopPropagation(); showTableDetailModal('${table.id}', '${table.name}')">
-                <i class="bi bi-list-ul"></i> 明細
-              </button>
-              <span class="text-academic fw-bold small">點擊作業 <i class="bi bi-chevron-right"></i></span>
-            </div>
-          </div>
-        </div>
-      </div>`;
-
+    const total = table.items.length; const counted = table.items.filter(i => i.hasCounted).length; const percent = total > 0 ? Math.round((counted / total) * 100) : 0; const isComplete = percent === 100;
+    const tableDesc = table.desc ? `<div class="mt-2 px-2 py-1 rounded text-dark fw-bold shadow-sm" style="background-color: #fff3cd; border-left: 4px solid #ffc107; font-size: 0.85rem;"><i class="bi bi-exclamation-circle-fill text-warning me-1" style="font-size: 1rem;"></i>${table.desc}</div>` : '';
+    const cardHtml = `<div class="card mb-3 shadow-sm border-0 border-start border-4 ${isComplete ? 'border-success' : 'border-warning'}" onclick="enterTableInventory('${table.id}', '${table.name}')" style="cursor: pointer;"><div class="card-body p-3"><div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark fs-5">${table.name}</div>${tableDesc}</div><span class="badge ${isComplete ? 'bg-success' : 'bg-academic'}">${percent}%</span></div><div class="progress mb-2" style="height: 12px;"><div class="progress-bar ${isComplete ? 'bg-success' : 'bg-warning'}" style="width: ${percent}%"></div></div><div class="d-flex justify-content-between align-items-center mt-3"><div class="small text-secondary">已盤: ${counted} / ${total}</div><div><button class="btn btn-sm btn-outline-secondary me-2 fw-bold" onclick="event.stopPropagation(); showTableDetailModal('${table.id}', '${table.name}')"><i class="bi bi-list-ul"></i> 明細</button><span class="text-academic fw-bold small">點擊作業 <i class="bi bi-chevron-right"></i></span></div></div></div></div>`;
     if (isComplete) finishedHtml += cardHtml; else unfinishedHtml += cardHtml;
   });
-
-  unfinishedArea.innerHTML = unfinishedHtml || '<div class="text-center text-muted py-3">所有藥架皆已盤點完成</div>';
-  finishedArea.innerHTML = finishedHtml || '<div class="text-center text-muted py-3">尚無完成的藥架</div>';
+  unfinishedArea.innerHTML = unfinishedHtml || '<div class="text-center text-muted py-3">所有藥架皆已盤點完成</div>'; finishedArea.innerHTML = finishedHtml || '<div class="text-center text-muted py-3">尚無完成的藥架</div>';
 }
 
 export function enterTableInventory(tableId, tableName) {
-  const select = document.getElementById('monthly-table-select');
-  if(select) { select.value = tableId; handleTableSelectChange(); }
-
-  document.getElementById('monthly-app-title').innerText = tableName; 
-  document.getElementById('monthly-tabs').classList.add('d-none');
-  document.getElementById('btn-monthly-back').classList.remove('d-none');
-  
-  document.querySelectorAll('.monthly-content-section').forEach(s => s.classList.add('d-none'));
-  document.getElementById('tab-dispense').classList.remove('d-none');
-  window.scrollTo(0,0);
+  const select = document.getElementById('monthly-table-select'); if(select) { select.value = tableId; handleTableSelectChange(); }
+  document.getElementById('monthly-app-title').innerText = tableName; document.getElementById('monthly-tabs').classList.add('d-none'); document.getElementById('btn-monthly-back').classList.remove('d-none');
+  document.querySelectorAll('.monthly-content-section').forEach(s => s.classList.add('d-none')); document.getElementById('tab-dispense').classList.remove('d-none'); window.scrollTo(0,0);
 }
 
 export function handleMonthlyBack() {
   const tabs = document.getElementById('monthly-tabs');
   if (tabs.classList.contains('d-none')) {
-    tabs.classList.remove('d-none');
-    document.getElementById('btn-monthly-back').classList.add('d-none');
-    document.getElementById('monthly-app-title').innerHTML = '<i class="bi bi-calendar-month"></i> 月盤點作業'; 
-    switchMonthlyTab('tab-dashboard');
-    refreshDashboardData(); 
-  } else {
-    switchView('view-mode-select');
-  }
+    tabs.classList.remove('d-none'); document.getElementById('btn-monthly-back').classList.add('d-none'); document.getElementById('monthly-app-title').innerHTML = '<i class="bi bi-calendar-month"></i> 月盤點作業'; 
+    switchMonthlyTab('tab-dashboard'); refreshDashboardData(); 
+  } else { switchView('view-mode-select'); }
 }
 
 export function showTableDetailModal(tableId, tableName) {
-  const table = monthlyTables.find(t => t.id === tableId);
-  if (!table) return;
-
+  const table = monthlyTables.find(t => t.id === tableId); if (!table) return;
   document.getElementById('modal-drug-name').innerText = `【${tableName}】儲位明細 (全域紀錄)`;
-  const headers = ["儲位碼", "代碼", "藥名", "數量", "人員", "時間", "狀態"];
+  
+  // 🌟 明細加入修改者的欄位
+  const headers = ["儲位碼", "代碼", "藥名", "數量", "人員", "時間", "修改紀錄", "狀態"];
   document.getElementById('modal-thead').innerHTML = `<tr>${headers.map(h => `<th class="py-2 text-nowrap">${h}</th>`).join('')}</tr>`;
 
   const tbodyHtml = table.items.map(item => {
-    // 這裡直接使用 item 裡面的資料 (來自 getMonthlyInitData，包含所有人的最新紀錄)
     const userName = item.hasCounted ? (item.countedUser || '系統') : '-';
     const timeStr = item.hasCounted ? (item.countedTime || '-') : '-';
     const qtyStr = item.hasCounted ? (item.countedQty || '已盤') : '-';
+    
+    // 🌟 整理最後修改資訊
+    const modifyStr = (item.hasCounted && item.updateUser) ? `<div class="small fw-bold text-dark">${item.updateUser}</div><div class="text-muted" style="font-size: 0.65rem;">${item.updateTime}</div>` : '-';
 
     return `
       <tr class="${item.hasCounted ? 'table-success-light' : ''}">
@@ -915,6 +473,7 @@ export function showTableDetailModal(tableId, tableName) {
         <td class="text-center fw-bold text-academic">${qtyStr}</td>
         <td class="text-center">${userName}</td>
         <td class="text-center small text-secondary">${timeStr}</td>
+        <td class="text-center align-middle">${modifyStr}</td>
         <td class="text-center">${item.hasCounted ? '✅' : '❌'}</td>
       </tr>`;
   }).join('');
@@ -923,39 +482,13 @@ export function showTableDetailModal(tableId, tableName) {
   new window.bootstrap.Modal(document.getElementById('detailsModal')).show();
 }
 
-// 🌟 新增：開啟數量彈窗的功能 (加入 defaultQty 預設值參數)
 export function openBarcodeQtyModal(drugName, drugInfo, defaultQty = '') {
   return new Promise((resolve) => {
-    barcodeQtyResolve = resolve;
-    document.getElementById('barcode-qty-drug-name').innerText = drugName;
-    document.getElementById('barcode-qty-drug-info').innerText = drugInfo;
-    const input = document.getElementById('barcode-qty-input');
-    
-    // 🌟 修改：帶入預設數量
-    input.value = defaultQty; 
-    
-    const modal = new window.bootstrap.Modal(document.getElementById('barcodeQtyModal'));
-    modal.show();
-
-    // 🌟 關鍵：當彈窗完全打開後，自動對焦並反白數字
-    document.getElementById('barcodeQtyModal').addEventListener('shown.bs.modal', () => {
-      input.focus();
-      input.select(); // 把預設數字反白，方便藥師直接打新數字覆蓋
-    }, { once: true });
+    barcodeQtyResolve = resolve; document.getElementById('barcode-qty-drug-name').innerText = drugName; document.getElementById('barcode-qty-drug-info').innerText = drugInfo;
+    const input = document.getElementById('barcode-qty-input'); input.value = defaultQty; 
+    const modal = new window.bootstrap.Modal(document.getElementById('barcodeQtyModal')); modal.show();
+    document.getElementById('barcodeQtyModal').addEventListener('shown.bs.modal', () => { input.focus(); input.select(); }, { once: true });
   });
 }
-
-// 🌟 綁定到 HTML 的按鈕功能
-window.confirmBarcodeQty = () => {
-  const qty = document.getElementById('barcode-qty-input').value;
-  if (qty === '' || qty <= 0) return alert('請輸入有效數量');
-  const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal'));
-  modal.hide();
-  if (barcodeQtyResolve) barcodeQtyResolve(qty);
-};
-
-window.cancelBarcodeQty = () => {
-  const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal'));
-  modal.hide();
-  if (barcodeQtyResolve) barcodeQtyResolve(null);
-};
+window.confirmBarcodeQty = () => { const qty = document.getElementById('barcode-qty-input').value; if (qty === '' || qty <= 0) return alert('請輸入有效數量'); const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal')); modal.hide(); if (barcodeQtyResolve) barcodeQtyResolve(qty); };
+window.cancelBarcodeQty = () => { const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal')); modal.hide(); if (barcodeQtyResolve) barcodeQtyResolve(null); };
