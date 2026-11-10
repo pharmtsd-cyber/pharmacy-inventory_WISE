@@ -658,18 +658,14 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
     const badgeHtml = isVoid ? `<span class="badge bg-secondary ms-1">已作廢</span>` : dispBadge;
     const locInfo = record.loc ? ` | 儲位: ${record.loc}` : ''; 
     
-    // 在卡片上顯示操作的人員姓名
     const userInfo = record.userName ? ` <span class="badge bg-light text-dark border ms-1"><i class="bi bi-person-fill"></i> ${record.userName}</span>` : '';
     
     const actionHtml = isVoid
       ? `<button class="btn btn-sm btn-outline-success py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '成立')">還原</button>`
       : `<button class="btn btn-sm btn-outline-primary py-0 me-1" onclick="editRecord('${record.sn}')">修改</button><button class="btn btn-sm btn-outline-danger py-0" onclick="toggleMonthlyRecordStatus('${record.sn}', '作廢')">作廢</button>`;
     
-    // 🌟 核心防護：確保即使允許編輯，也必須是「自己的紀錄」才會顯示修改/作廢按鈕
-    const isMyRecord = (record.userId === session.id);
-    const showEditButtons = allowEdit && isMyRecord;
-    
-    const editButtons = showEditButtons 
+    // 🌟 關鍵修改：只要 allowEdit 為 true，全部紀錄都會顯示修改/作廢按鈕
+    const editButtons = allowEdit 
       ? `<div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top"><div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass}">${qtyStr}</div><div>${actionHtml}</div></div>` 
       : `<div class="fs-5 fw-bold ${isVoid ? 'text-muted text-decoration-line-through' : colorClass} mt-1 pt-1 border-top">${qtyStr}</div>`; 
     
@@ -703,10 +699,10 @@ document.addEventListener('click', function(e) {
 // 🌟 升級版月盤點紀錄修改數量
 // ==========================================
 export async function editRecord(sn) {
-  const record = myRecordsData.find(r => r.sn === sn);
+  // 🌟 關鍵修改：從 allRecordsData 尋找，支援修改同事的紀錄
+  const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
   
-  // 呼叫自訂彈窗並等待藥師輸入
   const newQty = await new Promise(resolve => {
     window.resolveEditQtyModal = resolve;
     document.getElementById('edit-qty-drug-name').innerText = record.name;
@@ -724,6 +720,11 @@ export async function editRecord(sn) {
   
   // 樂觀更新：直接改寫畫面
   record.handQty = newQty; 
+  
+  // 🌟 如果這筆剛好是自己的紀錄，也同步更新 myRecordsData
+  const myRec = myRecordsData.find(r => r.sn === sn);
+  if (myRec) myRec.handQty = newQty;
+  
   renderAllRecordLists(); 
   
   monthlyTables.forEach(t => t.items.forEach(i => {
@@ -731,7 +732,6 @@ export async function editRecord(sn) {
   }));
   renderMonthlyDesk();
 
-  // 🌟 修改點：移除成功與失敗的 Toast 彈窗，不再還原狀態
   fetchBackend('updateMonthlyRecord', { sn: sn, newQty: newQty, dispType: record.dispType, userId: session.id, userName: session.name })
     .then(res => {
       refreshDashboardDataSilently();
@@ -744,11 +744,11 @@ export async function editRecord(sn) {
 // 🌟 升級版月盤點紀錄作廢
 // ==========================================
 export async function toggleMonthlyRecordStatus(sn, newStatus) {
-  const record = myRecordsData.find(r => r.sn === sn);
+  // 🌟 關鍵修改：從 allRecordsData 尋找，支援作廢同事的紀錄
+  const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
 
   if (newStatus === '作廢') {
-    // 呼叫防呆作廢彈窗並等待確認
     const isConfirmed = await new Promise(resolve => {
       window.resolveVoidModal = resolve;
       document.getElementById('void-drug-name').innerText = record.name;
@@ -760,6 +760,11 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
 
   // 樂觀更新：直接作廢
   record.status = newStatus;
+  
+  // 🌟 如果這筆剛好是自己的紀錄，也同步更新 myRecordsData
+  const myRec = myRecordsData.find(r => r.sn === sn);
+  if (myRec) myRec.status = newStatus;
+  
   renderAllRecordLists();
 
   monthlyTables.forEach(t => t.items.forEach(i => {
@@ -769,7 +774,6 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
   }));
   renderMonthlyDesk();
 
-  // 🌟 修改點：移除成功與失敗的 Toast 彈窗，不再還原狀態
   fetchBackend('modifyMonthlyRecordStatus', { sn: sn, newStatus: newStatus, userId: session.id, userName: session.name })
     .then(res => {
       refreshDashboardDataSilently();
