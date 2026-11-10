@@ -31,7 +31,7 @@
         </button>
         <span id="nav-info" class="d-none"></span>
         <span id="nav-sync-status" class="badge bg-warning text-dark shadow-sm ms-2" style="display: none; font-size: 0.75rem;">
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 10px; height: 10px;"></span> 同步中
+          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 10px; height: 10px;"></span> 同步中
         </span>
       </div>
       <div class="ms-1 flex-shrink-0">
@@ -235,7 +235,6 @@
       <div id="area-desk-list" class="d-none"><div id="desk-records-area" class="pb-5"></div></div>
     </div>
 
-    <!-- 🌟 修改庫存分頁 -->
     <div id="tab-stock" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
       <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1">
         <li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-stock-sub-input" onclick="switchStockSubTab('input')">盤點輸入</button></li>
@@ -252,7 +251,6 @@
       <div id="area-stock-all" class="d-none"><div id="stock-all-records-area"></div></div>
     </div>
 
-    <!-- 🌟 修改線上分頁 -->
     <div id="tab-online" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
       <ul class="nav nav-pills nav-fill gap-2 mb-2 px-1">
         <li class="nav-item"><button class="nav-link active fw-bold border bg-academic text-white shadow-sm py-2" id="btn-online-sub-input" onclick="switchOnlineSubTab('input')">線上作業</button></li>
@@ -308,7 +306,7 @@
       <div id="area-online-all" class="d-none"><div id="online-all-records-area" class="pb-5"></div></div>
     </div>
 
-    <!-- 🌟 修改紀錄分頁 -->
+    <!-- 🌟 升級版紀錄分頁：加入起訖日期區間篩選 -->
     <div id="tab-records" class="monthly-content-section flex-grow-1 overflow-auto px-1 d-none">
       <div class="card p-3 border-0 shadow-sm mb-2 bg-white flex-shrink-0">
         <ul class="nav nav-pills nav-fill gap-2 mb-3">
@@ -318,14 +316,18 @@
         
         <div class="row g-2 mb-2">
           <div class="col-12">
-            <label class="small fw-bold text-secondary mb-1">日期篩選</label>
-            <input type="date" id="filter-date-records" class="form-control border-secondary shadow-sm" onchange="renderAllRecordLists()">
+            <label class="small fw-bold text-secondary mb-1">日期區間篩選</label>
+            <div class="input-group input-group-sm shadow-sm">
+              <input type="date" id="filter-date-start" class="form-control border-secondary" onchange="renderAllRecordLists()">
+              <span class="input-group-text bg-light border-secondary">至</span>
+              <input type="date" id="filter-date-end" class="form-control border-secondary" onchange="renderAllRecordLists()">
+            </div>
           </div>
           <div class="col-12">
             <label class="small fw-bold text-secondary mb-1">藥品篩選</label>
             <div class="position-relative">
               <div class="input-group input-group-sm shadow-sm">
-                <input type="text" id="filter-input-records" class="form-control border-secondary" placeholder="搜尋藥名或代碼..." onkeyup="handleRecordFilterSearch('records')" autocomplete="off">
+                <input type="text" id="filter-input-records" class="form-control border-secondary" placeholder="搜尋藥名、代碼或儲位..." onkeyup="handleRecordFilterSearch('records')" autocomplete="off">
                 <button class="btn btn-outline-danger" onclick="clearRecordFilter('records')"><i class="bi bi-x-lg"></i></button>
               </div>
               <div id="filter-dropdown-records" class="search-dropdown text-start shadow"></div>
@@ -346,7 +348,6 @@
         <button class="btn btn-outline-secondary fw-bold shadow-sm py-2" onclick="switchView('view-daily-app')"><i class="bi bi-chevron-left"></i> 返回</button>
       </div>
       
-      <!-- 新增日期控制面板 -->
       <label class="small fw-bold text-secondary mb-1">快速加入比較日期：</label>
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <input type="date" id="history-add-date" class="form-control py-2 border-secondary shadow-sm" style="max-width: 160px;" onchange="addHistoryDate()">
@@ -355,12 +356,8 @@
         <button class="btn btn-academic fw-bold shadow-sm px-3" onclick="addQuickDate('prev')"><i class="bi bi-arrow-left"></i> 往前一天</button>
       </div>
       
-      <!-- 顯示已加入的日期標籤 -->
-      <div id="history-selected-dates" class="d-flex flex-wrap gap-2 mb-3 min-vh-25">
-        <!-- 動態生成的日期 Badge 會放在這裡 -->
-      </div>
+      <div id="history-selected-dates" class="d-flex flex-wrap gap-2 mb-3 min-vh-25"></div>
 
-      <!-- 藥品過濾器 (保留) -->
     <div class="input-group shadow-sm">
         <select id="history-zero-filter" class="form-select border-secondary fw-bold bg-light text-academic" style="max-width: 145px;" onchange="renderHistoryTable()">
           <option value="hide_zero" selected>隱藏雙零品項</option>
@@ -373,11 +370,9 @@
       </div>
     </div>
     
-    <!-- 動態展開的樞紐分析表 -->
     <div class="table-responsive bg-white shadow-sm rounded flex-grow-1 overflow-auto mb-2" style="border: 1px solid #dee2e6;">
       <table class="table table-hover align-middle table-bordered mb-0" style="font-size: 0.9rem;">
         <thead class="table-academic-head sticky-top shadow-sm" id="history-thead" style="top: 0; z-index: 10;">
-          <!-- 標題列將由 JS 動態生成 -->
         </thead>
         <tbody id="history-tbody">
           <tr><td class="text-center py-5 text-muted fw-bold">請於上方加入日期以開始比較</td></tr>
@@ -428,7 +423,6 @@
 
   <script type="module" src="./js/main.js"></script>
 
-  <!-- 🌟 交班註記專用 Modal -->
 <div class="modal fade" id="calculatorModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content shadow-lg border-0 bg-light">
