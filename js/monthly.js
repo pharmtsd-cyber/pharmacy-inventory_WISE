@@ -137,9 +137,16 @@ export function submitMonthlyOnline(actionSrc, parsedData = null, writePriceCode
 
 export function loadUserRecords(callback) {
   fetchBackend('getMonthlyUserRecords', { userId: 'ALL' }).then(res => { 
-    allRecordsData = res; 
-    // 🌟 修改：我的軌跡包含自己「建立」的 OR 自己「修改」的紀錄
-    myRecordsData = res.filter(r => r.userId === session.id || r.updateUser === session.name);
+    // 🌟 【防禦 1】嚴格白名單：只允許顯示這三個月盤點類別的紀錄，強制把其他髒資料（如每日盤點）隔絕！
+    const validMonthlyTypes = ['盤點調劑台', '盤點庫存', '線上調劑'];
+    allRecordsData = res.filter(r => validMonthlyTypes.includes(r.type)); 
+    
+    // 🌟 【防禦 2】強化比對：把前後空白去掉，避免 session 名稱與資料庫差一個空白而比對失敗
+    const sName = session.name ? session.name.trim() : '';
+    const sId = session.id ? session.id.trim() : '';
+    
+    // 🌟 只要是你建立的，或是你修改的，全部拉進「我的軌跡」
+    myRecordsData = allRecordsData.filter(r => (r.userId || '').trim() === sId || (r.updateUser || '').trim() === sName);
     
     renderAllRecordLists(); 
     if(callback) callback(); 
@@ -315,8 +322,6 @@ export function renderAllRecordLists() {
 
   const totalCount = document.getElementById('user-records-count'); if (totalCount) totalCount.innerText = allMyRecords.length; const allCount = document.getElementById('all-records-count'); if (allCount) allCount.innerText = allGlobalRecords.length; 
   const userArea = document.getElementById('user-records-area'); if (userArea) userArea.innerHTML = generateRecordCards(allMyRecords, '查無符合條件的紀錄', true); 
-  
-  // 🌟 修改：將最後一個參數改為 true，全面開放全域軌跡的修改與作廢權限！
   const globalArea = document.getElementById('all-records-area'); if (globalArea) globalArea.innerHTML = generateRecordCards(allGlobalRecords, '查無符合條件的紀錄', true); 
 }
 
@@ -334,7 +339,6 @@ export function generateRecordCards(recordsArray, emptyMsg, allowEdit) {
     const badgeHtml = isVoid ? `<span class="badge bg-secondary ms-1">已作廢</span>` : dispBadge;
     const locInfo = record.loc ? ` | 儲位: ${record.loc}` : ''; 
     
-    // 🌟 在卡片上加入建立者與修改者的資訊標籤
     const userInfo = record.userName ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-person-fill"></i> 建立: ${record.userName}</span>` : '';
     const updateInfo = (record.updateUser && record.updateTime) ? `<span class="badge bg-warning text-dark border ms-1"><i class="bi bi-pencil-square"></i> 修改: ${record.updateUser} (${record.updateTime})</span>` : '';
     
@@ -355,34 +359,24 @@ export function handleRecordFilterSearch(tabKey) {
   const kw = document.getElementById(`filter-input-${tabKey}`).value.toLowerCase().trim(); 
   const dropdown = document.getElementById(`filter-dropdown-${tabKey}`); 
   let sourceData = []; 
-  
   if (tabKey === 'stock') sourceData = myRecordsData.filter(r => r.type === '盤點庫存'); 
   else if (tabKey === 'desk') { const tId = document.getElementById('monthly-table-select').value; sourceData = allRecordsData.filter(r => r.type === '盤點調劑台' && r.tableId === tId); } 
   else if (tabKey === 'online') sourceData = myRecordsData.filter(r => r.type === '線上調劑'); 
-  // 🌟 修改：讓軌跡頁面的篩選器從「全域資料庫」找，不再侷限於自己的資料
-  else if (tabKey === 'records') sourceData = allRecordsData; 
+  else if (tabKey === 'records') sourceData = allRecordsData; // 🌟 軌跡頁面從全域找
   
-  const uniqueDrugs = []; 
-  const seen = new Set(); 
+  const uniqueDrugs = []; const seen = new Set(); 
   sourceData.forEach(r => { 
-    // 🌟 修改：把儲位也綁進 key 裡面，讓同藥品但不同儲位的可以分開選
     const key = r.code + '_' + (r.loc || '');
-    if (!seen.has(key)) { 
-      seen.add(key); 
-      uniqueDrugs.push({ code: r.code, name: r.name, loc: r.loc || '' }); 
-    } 
+    if (!seen.has(key)) { seen.add(key); uniqueDrugs.push({ code: r.code, name: r.name, loc: r.loc || '' }); } 
   }); 
   
-  // 🌟 修改：篩選條件加入儲位 (d.loc)
   let filtered = kw ? uniqueDrugs.filter(d => d.code.toLowerCase().includes(kw) || d.name.toLowerCase().includes(kw) || d.loc.toLowerCase().includes(kw)) : uniqueDrugs; 
-  
   if (kw && filtered.length > 0) { 
     filtered.sort((a, b) => { 
       const getScore = (d) => { 
         let score = 999; 
         if (d.code.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.code.toLowerCase().indexOf(kw)); 
         if (d.name.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.name.toLowerCase().indexOf(kw)); 
-        // 🌟 修改：加入儲位權重計分
         if (d.loc.toLowerCase().indexOf(kw) !== -1) score = Math.min(score, d.loc.toLowerCase().indexOf(kw)); 
         return score; 
       }; 
@@ -392,7 +386,6 @@ export function handleRecordFilterSearch(tabKey) {
   
   if (filtered.length > 0) { 
     dropdown.innerHTML = filtered.slice(0, 10).map(d => {
-      // 🌟 修改：在下拉選單中順便顯示出儲位，視覺更清楚
       const locBadge = d.loc ? `<span class="badge bg-secondary ms-1">儲位: ${d.loc}</span>` : '';
       return `<div class="search-dropdown-item" onclick="applyRecordFilter('${tabKey}', '${d.code}', '${d.name.replace(/'/g, "\\'")}')"><div class="fw-bold text-academic">${d.name}</div><div class="small text-muted">${d.code} ${locBadge}</div></div>`;
     }).join(''); 
@@ -417,6 +410,7 @@ document.addEventListener('click', function(e) {
 });
 
 export async function editRecord(sn) {
+  // 🌟 從 allRecordsData 尋找，支援修改同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
   const newQty = await new Promise(resolve => {
@@ -429,11 +423,23 @@ export async function editRecord(sn) {
   });
 
   if (newQty === null || newQty === "") return;
-  record.handQty = newQty; 
-  const myRec = myRecordsData.find(r => r.sn === sn);
-  if (myRec) myRec.handQty = newQty;
-  renderAllRecordLists(); 
   
+  // 🌟 樂觀更新：更新全域變數，並壓上自己的名字與時間
+  record.handQty = newQty; 
+  record.updateUser = session.name;
+  record.updateTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+  // 🌟 如果原本不在 myRecordsData 中（因為是修改別人的），現在要把它加進去
+  const myRec = myRecordsData.find(r => r.sn === sn);
+  if (myRec) { 
+    myRec.handQty = newQty; 
+    myRec.updateUser = session.name;
+    myRec.updateTime = record.updateTime;
+  } else {
+    myRecordsData.unshift(record);
+  }
+  
+  renderAllRecordLists(); 
   monthlyTables.forEach(t => t.items.forEach(i => { if (i.drugCode === record.code && i.locCode === record.loc) i.countedQty = newQty; }));
   renderMonthlyDesk();
 
@@ -442,6 +448,7 @@ export async function editRecord(sn) {
 }
 
 export async function toggleMonthlyRecordStatus(sn, newStatus) {
+  // 🌟 從 allRecordsData 尋找，支援作廢同事的紀錄
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
 
@@ -453,11 +460,22 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     if (!isConfirmed) return;
   }
 
+  // 🌟 樂觀更新：更新全域變數，並壓上自己的名字與時間
   record.status = newStatus;
+  record.updateUser = session.name;
+  record.updateTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+  // 🌟 如果原本不在 myRecordsData 中（因為是作廢別人的），現在要把它加進去
   const myRec = myRecordsData.find(r => r.sn === sn);
-  if (myRec) myRec.status = newStatus;
+  if (myRec) { 
+    myRec.status = newStatus; 
+    myRec.updateUser = session.name;
+    myRec.updateTime = record.updateTime;
+  } else {
+    myRecordsData.unshift(record);
+  }
+  
   renderAllRecordLists();
-
   monthlyTables.forEach(t => t.items.forEach(i => { if (i.drugCode === record.code && i.locCode === record.loc) { i.hasCounted = (newStatus === '成立'); } }));
   renderMonthlyDesk();
 
@@ -510,8 +528,6 @@ export function handleMonthlyBack() {
 export function showTableDetailModal(tableId, tableName) {
   const table = monthlyTables.find(t => t.id === tableId); if (!table) return;
   document.getElementById('modal-drug-name').innerText = `【${tableName}】儲位明細 (全域紀錄)`;
-  
-  // 🌟 明細加入修改者的欄位
   const headers = ["儲位碼", "代碼", "藥名", "數量", "人員", "時間", "修改紀錄", "狀態"];
   document.getElementById('modal-thead').innerHTML = `<tr>${headers.map(h => `<th class="py-2 text-nowrap">${h}</th>`).join('')}</tr>`;
 
@@ -519,8 +535,6 @@ export function showTableDetailModal(tableId, tableName) {
     const userName = item.hasCounted ? (item.countedUser || '系統') : '-';
     const timeStr = item.hasCounted ? (item.countedTime || '-') : '-';
     const qtyStr = item.hasCounted ? (item.countedQty || '已盤') : '-';
-    
-    // 🌟 整理最後修改資訊
     const modifyStr = (item.hasCounted && item.updateUser) ? `<div class="small fw-bold text-dark">${item.updateUser}</div><div class="text-muted" style="font-size: 0.65rem;">${item.updateTime}</div>` : '-';
 
     return `
