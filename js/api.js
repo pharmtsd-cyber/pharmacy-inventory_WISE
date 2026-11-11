@@ -135,8 +135,9 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
           resolve(result); 
         }
       })
-      .catch(error => {
-        if (isLargeData && error.name === 'TypeError' && error.message.includes('fetch')) {
+        .catch(error => {
+        // 🌟 只有 saveAdminSortData 忽略導向錯誤；打包盤點必須拿到真實的 JSON 回應才算數！
+        if (action === 'saveAdminSortData' && error.name === 'TypeError' && error.message.includes('fetch')) {
           if (isCriticalWrite) { activeUploads--; updateSyncUI(activeUploads); }
           return resolve({ success: true, message: '寫入成功 (已忽略導向錯誤)' });
         }
