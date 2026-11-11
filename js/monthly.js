@@ -8,37 +8,203 @@ export let html5QrCode = null; export let stockSelectedDrug = null; export let o
 export let barcodeQtyResolve = null; export let allRecordsData = [];
 
 // ==========================================
-// 🛡️ 月盤點「即時草稿箱」管理工具 (防止未送出遺失)
+// 🚀 月盤點調劑台：「單筆消失 + 60秒定時/離開自動打包」佇列引擎
 // ==========================================
-function getDeskDrafts() {
-  try { return JSON.parse(localStorage.getItem('femh_monthly_desk_drafts')) || {}; }
-  catch(e) { return {}; }
+let deskAutoSyncTimer = null;
+let isDeskFlushing = false;
+
+export function getDeskPendingQueue() {
+  try { return JSON.parse(localStorage.getItem('femh_monthly_desk_queue')) || []; }
+  catch(e) { return []; }
 }
 
-function saveDeskDraft(locCode, val) {
-  const drafts = getDeskDrafts();
-  if (val === '' || val === null || val === undefined) {
-    delete drafts[locCode];
-  } else {
-    drafts[locCode] = val;
-  }
-  localStorage.setItem('femh_monthly_desk_drafts', JSON.stringify(drafts));
-}
-
-function clearDeskDrafts(locCodesArray) {
-  const drafts = getDeskDrafts();
-  locCodesArray.forEach(loc => delete drafts[loc]);
-  localStorage.setItem('femh_monthly_desk_drafts', JSON.stringify(drafts));
+function saveDeskPendingQueue(queue) {
+  localStorage.setItem('femh_monthly_desk_queue', JSON.stringify(queue));
+  updatePendingBannerUI();
 }
 
 export function getUnsavedDeskCount() {
-  let count = 0;
-  document.querySelectorAll('.batch-qty-input').forEach(inp => {
-    if (inp.value.trim() !== '' && Number(inp.value) >= 0) count++;
-  });
-  return count;
+  return getDeskPendingQueue().length;
 }
 
+// 更新畫面上方的「待打包同步」狀態列
+export function updatePendingBannerUI() {
+  const queue = getDeskPendingQueue();
+  const badge = document.getElementById('desk-pending-count');
+  const bar = document.getElementById('desk-pending-bar');
+  if (badge) badge.innerText = queue.length;
+  if (bar) {
+    if (queue.length > 0) bar.classList.remove('d-none');
+    else bar.classList.add('d-none');
+  }
+}
+
+// 啟動 60 秒定時自動打包計時器
+function startDeskAutoSyncTimer() {
+  if (deskAutoSyncTimer) return;
+  deskAutoSyncTimer = setInterval(() => {
+    const queue = getDeskPendingQueue();
+    if (queue.length > 0 && !isDeskFlushing) {
+      // 背景自動觸發：不鎖死畫面，讓藥師能繼續順暢輸入下一筆
+      flushDeskQueue({ showBlockingLoader: false });
+    } else if (queue.length === 0) {
+      stopDeskAutoSyncTimer();
+    }
+  }, 60000); // 每 60 秒自動打包一次
+}
+
+function stopDeskAutoSyncTimer() {
+  if (deskAutoSyncTimer) {
+    clearInterval(deskAutoSyncTimer);
+    deskAutoSyncTimer = null;
+  }
+}
+
+// 將佇列裡的項目自動套用到本地陣列 (防止重新整理或重繪時，剛點完還沒滿1分鐘的藥品又跳出來)
+function applyPendingQueueToLocalState() {
+  const queue = getDeskPendingQueue();
+  if (queue.length === 0) return;
+
+  queue.forEach(req => {
+    const d = req.data;
+    const table = monthlyTables.find(t => t.id === d.tableId);
+    if (table) {
+      const item = table.items.find(i => i.locCode === d.locCode);
+      if (item) {
+        item.hasCounted = true;
+        item.countedQty = d.handQty;
+        item.countedUser = d.userName;
+        item.countedTime = req.localTimeStr || '待同步';
+      }
+    }
+    // 確保「已盤點」清單也看得到這筆暫存紀錄
+    const existsInAll = allRecordsData.some(r => r.loc === d.locCode && r.type === '盤點調劑台');
+    if (!existsInAll) {
+      const tempRec = {
+        sn: req.tempSn,
+        code: d.drugCode,
+        name: d.drugName,
+        qty: Number(d.handQty),
+        handQty: Math.abs(Number(d.handQty)),
+        time: req.localTimeStr || '待同步',
+        tStamp: req.timestamp || Date.now(),
+        type: '盤點調劑台',
+        dispType: '',
+        loc: d.locCode,
+        tableId: d.tableId,
+        status: '成立',
+        userId: d.userId,
+        userName: d.userName
+      };
+      allRecordsData.unshift(tempRec);
+      myRecordsData.unshift(tempRec);
+    }
+  });
+}
+
+// 🌟 核心打包上傳函式 (支援「背景靜默打包」與「離開頁面時進度條強制打包」)
+export function flushDeskQueue(options = {}) {
+  const { showBlockingLoader = true, onComplete = null } = options;
+  const queue = getDeskPendingQueue();
+
+  if (queue.length === 0) {
+    if (onComplete) onComplete(true);
+    return Promise.resolve(true);
+  }
+
+  if (isDeskFlushing) {
+    if (showBlockingLoader) {
+      toggleLoader(true, `📦 正在同步 ${queue.length} 筆盤點資料...`, true);
+    }
+    return new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        if (!isDeskFlushing) {
+          clearInterval(checkInterval);
+          const success = getDeskPendingQueue().length === 0;
+          if (showBlockingLoader) toggleLoader(false, '', true);
+          if (onComplete) onComplete(success);
+          resolve(success);
+        }
+      }, 200);
+    });
+  }
+
+  isDeskFlushing = true;
+  const snapshotIds = queue.map(q => q.queueId);
+  const batchPayload = queue.map(q => ({ action: q.action, data: q.data }));
+
+  if (showBlockingLoader) {
+    toggleLoader(true, `📦 正在打包上傳 ${queue.length} 筆盤點資料...`, true);
+  } else {
+    const syncBtn = document.getElementById('btn-flush-now');
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>自動打包中...`;
+    }
+  }
+
+  return fetchBackend('syncBatchOfflineData', { batchArray: JSON.stringify(batchPayload) })
+    .then(res => {
+      isDeskFlushing = false;
+      if (res && res.success) {
+        // 只清除剛剛成功送出的項目 (若背景上傳期間藥師又點了新藥品，新藥品會安全保留)
+        const currentQueue = getDeskPendingQueue();
+        const remainingQueue = currentQueue.filter(q => !snapshotIds.includes(q.queueId));
+        saveDeskPendingQueue(remainingQueue);
+        if (remainingQueue.length === 0) stopDeskAutoSyncTimer();
+
+        if (showBlockingLoader) {
+          toggleLoader(false, '', true);
+          setTimeout(() => {
+            showToast(`🎉 已成功同步 ${snapshotIds.length} 筆盤點資料！`);
+            if (onComplete) onComplete(true);
+          }, 600);
+        } else {
+          showToast(`☁️ 已自動打包同步 ${snapshotIds.length} 筆資料`);
+          const syncBtn = document.getElementById('btn-flush-now');
+          if (syncBtn) {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = `<i class="bi bi-cloud-upload"></i> 立即上傳`;
+          }
+          // 背景更新最新 SN 與看板進度，不打斷藥師輸入
+          loadUserRecords(() => { refreshDashboardDataSilently(); });
+          if (onComplete) onComplete(true);
+        }
+        return true;
+      } else {
+        if (showBlockingLoader) toggleLoader(false, '', true);
+        const syncBtn = document.getElementById('btn-flush-now');
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.innerHTML = `<i class="bi bi-cloud-upload"></i> 立即上傳`;
+        }
+        alert("❌ 打包同步失敗（您的盤點紀錄仍安全保存在手機中）：" + (res ? res.message : '未知錯誤'));
+        if (onComplete) onComplete(false);
+        return false;
+      }
+    })
+    .catch(err => {
+      isDeskFlushing = false;
+      if (showBlockingLoader) toggleLoader(false, '', true);
+      const syncBtn = document.getElementById('btn-flush-now');
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = `<i class="bi bi-cloud-upload"></i> 立即上傳`;
+      }
+      if (showBlockingLoader) {
+        alert("⚠️ 網路連線不穩，暫時無法同步（您的紀錄已安全保留，稍後將自動重試）：" + err.message);
+      } else {
+        showToast('⚠️ 背景自動打包連線延遲，將於 1 分鐘後重試', 'delete');
+      }
+      if (onComplete) onComplete(false);
+      return false;
+    });
+}
+window.flushDeskQueue = flushDeskQueue;
+
+// ==========================================
+// 🏁 月盤點初始化與基礎作業
+// ==========================================
 export function initMonthlyMode() {
   switchView('view-monthly-app'); switchMonthlyTab('tab-dashboard'); 
   document.querySelectorAll('input[name="actionType"]').forEach(radio => { if (radio.value !== '手動') radio.checked = true; });
@@ -61,7 +227,12 @@ export function initMonthlyMode() {
   fetchBackend('getMonthlyInitData').then(res => {
     monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
     const select = document.getElementById('monthly-table-select'); if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-    loadUserRecords(() => { renderMonthlyDashboard(); toggleLoader(false); });
+    loadUserRecords(() => { 
+      applyPendingQueueToLocalState();
+      renderMonthlyDashboard(); 
+      toggleLoader(false); 
+      if (getDeskPendingQueue().length > 0) startDeskAutoSyncTimer();
+    });
   }).catch(err => { toggleLoader(false); alert("載入失敗"); });
 }
 
@@ -179,6 +350,7 @@ export function loadUserRecords(callback) {
     
     myRecordsData = allRecordsData.filter(r => (r.userId || '').trim() === sId || (r.updateUser || '').trim() === sName);
     
+    applyPendingQueueToLocalState();
     renderAllRecordLists(); 
     if(callback) callback(); 
   }).catch(err => { toggleLoader(false); alert("紀錄載入失敗"); });
@@ -215,6 +387,18 @@ export function updateOnlineUI() {
 }
 
 export function switchMonthlyTab(tabId) {
+  // 🌟 切換上方主分頁時，若佇列中有未打包資料，先主動打包送出
+  if (getDeskPendingQueue().length > 0) {
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: () => executeSwitchMonthlyTab(tabId)
+    });
+    return;
+  }
+  executeSwitchMonthlyTab(tabId);
+}
+
+function executeSwitchMonthlyTab(tabId) {
   document.querySelectorAll('.monthly-content-section').forEach(s => s.classList.add('d-none'));
   document.getElementById(tabId).classList.remove('d-none');
   const tabsContainer = document.getElementById('monthly-tabs');
@@ -227,13 +411,24 @@ export function switchMonthlyTab(tabId) {
 }
 
 export function switchDeskSubTab(view) { 
-  // 🛡️ 若從「未盤點」切去「已盤點」時有未送出資料，跳出提醒
-  if (view === 'list' && getUnsavedDeskCount() > 0) {
-    if (!confirm(`⚠️ 您目前有 ${getUnsavedDeskCount()} 筆已填寫但尚未打包送出的數量！\n（系統已為您自動暫存草稿，但建議先按「打包送出」）\n\n確定要先切換分頁嗎？`)) {
-      return;
-    }
+  // 🌟 當藥師點選「已盤點」分頁且有待打包項目時，主動執行一次打包並重整紀錄，確保在「已盤點」可立即修改或作廢
+  if (view === 'list' && getDeskPendingQueue().length > 0) {
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: (success) => {
+        if (success) {
+          loadUserRecords(() => executeSwitchDeskSubTab(view));
+        } else {
+          executeSwitchDeskSubTab(view);
+        }
+      }
+    });
+    return;
   }
+  executeSwitchDeskSubTab(view);
+}
 
+function executeSwitchDeskSubTab(view) {
   const btnIn = document.getElementById('btn-desk-sub-input'), btnList = document.getElementById('btn-desk-sub-list'); 
   if(btnIn) btnIn.className = 'nav-link fw-bold border text-academic bg-white shadow-sm py-2'; 
   if(btnList) btnList.className = 'nav-link fw-bold border text-success bg-white shadow-sm py-2'; 
@@ -289,7 +484,7 @@ export function handleOnlineSearch() { const kw = document.getElementById('onlin
 export function handleTableSelectChange() { renderMonthlyDesk(); renderAllRecordLists(); }
 
 // ==========================================
-// 🚀 月盤點調劑台：批次打包輸入與草稿還原
+// 🎯 單筆送出立刻消失 + 自動排程打包 UI
 // ==========================================
 export function renderMonthlyDesk() { 
   const tableId = document.getElementById('monthly-table-select').value; 
@@ -298,11 +493,28 @@ export function renderMonthlyDesk() {
   const tableData = monthlyTables.find(t => t.id === tableId); 
   if (!tableData) return; 
   
+  applyPendingQueueToLocalState();
+
   const uncountedItems = tableData.items.filter(i => !i.hasCounted); 
   const uncountedBadge = document.getElementById('count-desk-uncounted'); 
   if (uncountedBadge) uncountedBadge.innerText = uncountedItems.length; 
+  
+  const pendingCount = getDeskPendingQueue().length;
+
+  let html = `
+    <div id="desk-pending-bar" class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 sticky-top shadow-sm border border-warning rounded ${pendingCount > 0 ? '' : 'd-none'}" style="top: 52px; z-index: 9;">
+      <div>
+        <span class="fw-bold text-dark ms-1"><i class="bi bi-Layers-fill text-warning me-1"></i>待打包上傳：<span id="desk-pending-count" class="badge bg-warning text-dark fs-6 ms-1">${pendingCount}</span> 筆</span>
+        <span class="text-muted small d-block ms-1" style="font-size: 0.72rem;">每 1 分鐘或返回、更新時自動打包送出</span>
+      </div>
+      <button id="btn-flush-now" class="btn btn-sm btn-academic fw-bold px-3 py-1 shadow-sm" onclick="flushDeskQueue({ showBlockingLoader: true, onComplete: () => refreshMonthlyData(true) })">
+        <i class="bi bi-cloud-upload"></i> 立即上傳
+      </button>
+    </div>`;
+
   if (uncountedItems.length === 0) { 
-    area.innerHTML = '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>'; 
+    html += '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>'; 
+    area.innerHTML = html;
     return; 
   }
   
@@ -310,23 +522,9 @@ export function renderMonthlyDesk() {
   tableData.items.forEach(item => { if (!uniqueDrugs.includes(item.drugCode)) uniqueDrugs.push(item.drugCode); }); 
   const getDrugColor = (code) => { const index = uniqueDrugs.indexOf(code); return index % 2 === 0 ? 'var(--academic-primary)' : '#adb5bd'; }; 
   
-  // 讀取本地草稿箱
-  const drafts = getDeskDrafts();
-
-  let html = `
-    <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 sticky-top shadow-sm border border-secondary rounded" style="top: 52px; z-index: 9;">
-      <div>
-        <span class="fw-bold text-academic ms-1">已填寫：<span id="batch-fill-count" class="badge bg-danger fs-6 ms-1">0</span> 筆</span>
-        <span class="text-muted small d-block ms-1" style="font-size: 0.7rem;"><i class="bi bi-shield-check text-success"></i> 輸入數字已自動暫存防遺失</span>
-      </div>
-      <button class="btn btn-academic fw-bold px-3 py-2 shadow-sm" onclick="submitMonthlyDeskBatch()"><i class="bi bi-cloud-arrow-up"></i> 打包送出</button>
-    </div>`; 
-
   uncountedItems.forEach(item => { 
     const borderColor = getDrugColor(item.drugCode); 
     const encodedName = btoa(encodeURIComponent(item.drugName || '')); 
-    const draftVal = drafts[item.locCode] !== undefined ? drafts[item.locCode] : '';
-
     let hintHtml = '';
     if (item.desc && item.desc !== '') hintHtml += `<div class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>盤點說明：${item.desc}</div>`;
     if (item.remark && item.remark !== '') hintHtml += `<div class="text-secondary small mb-1" style="font-size: 0.8rem;"><i class="bi bi-info-square-fill me-1"></i>藥品備註：${item.remark}</div>`;
@@ -340,76 +538,92 @@ export function renderMonthlyDesk() {
         </div>
         ${hintHtml ? `<div class="bg-light rounded p-2 mb-2 border border-light-subtle">${hintHtml}</div>` : ''}
         <div class="input-group shadow-sm">
-          <input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary batch-qty-input" 
-            data-loc="${item.locCode}" data-code="${item.drugCode}" data-name="${item.drugName}" data-table="${item.tableId}" 
-            placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" value="${draftVal}" oninput="updateBatchCount('${item.locCode}', this.value)">
+          <input type="number" id="m-qty-${item.locCode}" class="form-control form-control-lg bg-white fw-bold text-center border-secondary" placeholder="數量" inputmode="numeric" pattern="[0-9]*" value="" onkeydown="if(event.key === 'Enter') submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', decodeURIComponent(atob('${encodedName}')), '${item.tableId}')">
           <button class="btn btn-outline-secondary px-3 fw-bold bg-light border-secondary" type="button" onclick="openCalculator('m-qty-${item.locCode}', decodeURIComponent(atob('${encodedName}')))"><i class="bi bi-calculator fs-5"></i></button>
+          <button class="btn btn-academic px-4 fw-bold fs-5" onclick="submitMonthlyDeskOne('${item.locCode}', '${item.drugCode}', decodeURIComponent(atob('${encodedName}')), '${item.tableId}')">確認送出</button>
         </div>
       </div>
     </div>`; 
   }); 
   area.innerHTML = html;
+}
+
+export function submitMonthlyDeskOne(loc, dCode, dName, tId) {
+  const inputEl = document.getElementById(`m-qty-${loc}`); 
+  const qty = inputEl ? inputEl.value.trim() : ''; 
+  if (qty === '' || Number(qty) < 0) return alert('請輸入有效數量'); 
   
-  updateBatchCount();
-}
+  const tableId = document.getElementById('monthly-table-select').value; 
+  const tableData = monthlyTables.find(t => t.id === tableId); 
+  if (!tableData) return; 
+  const item = tableData.items.find(i => i.locCode === loc); 
+  if (!item) return;
+  
+  const now = new Date();
+  const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
 
-export function updateBatchCount(locCode = null, val = null) {
-  if (locCode !== null) {
-    saveDeskDraft(locCode, val);
-  }
-  const count = getUnsavedDeskCount();
-  const badge = document.getElementById('batch-fill-count');
-  if (badge) badge.innerText = count;
-}
-window.updateBatchCount = updateBatchCount;
+  // 1. 立即標記完成並讓卡片從畫面消失
+  item.hasCounted = true; 
+  item.countedQty = qty; 
+  item.countedUser = session.name;
+  item.countedTime = timeStr;
+  
+  if (navigator.vibrate) navigator.vibrate(50);
 
-export function submitMonthlyDeskBatch() {
-  const inputs = document.querySelectorAll('.batch-qty-input');
-  const batchArray = [];
-  const submittedLocs = [];
-
-  inputs.forEach(inp => {
-    const qty = inp.value.trim();
-    if (qty !== '' && Number(qty) >= 0) {
-      const loc = inp.getAttribute('data-loc');
-      submittedLocs.push(loc);
-      batchArray.push({
-        action: 'submitInventory',
-        data: {
-          mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台',
-          actionSrc: '', dispType: '',
-          drugCode: inp.getAttribute('data-code'), drugName: inp.getAttribute('data-name'),
-          handQty: qty, tableId: inp.getAttribute('data-table'), locCode: loc, barcode: ''
-        }
-      });
+  // 2. 存入本地待打包佇列 (同儲位若有重複則更新)
+  const queue = getDeskPendingQueue();
+  const existingIdx = queue.findIndex(q => q.data && q.data.locCode === loc);
+  const tempSn = 'PENDING_' + loc;
+  const queueItem = {
+    queueId: Date.now().toString() + '_' + Math.random().toString(36).substring(2, 7),
+    tempSn: tempSn,
+    timestamp: now.getTime(),
+    localTimeStr: timeStr,
+    action: 'submitInventory',
+    data: {
+      mode: '月盤點', userId: session.id, userName: session.name, type: '盤點調劑台',
+      actionSrc: '', dispType: '', drugCode: dCode, drugName: dName,
+      handQty: qty, tableId: tId, locCode: loc, barcode: ''
     }
+  };
+
+  if (existingIdx > -1) queue[existingIdx] = queueItem;
+  else queue.push(queueItem);
+  saveDeskPendingQueue(queue);
+
+  // 3. 同步更新本地已盤點清單數字
+  pushRecordLocally({
+    action: existingIdx > -1 ? 'update' : 'insert',
+    sn: tempSn,
+    code: dCode, name: dName, qty: Number(qty), handQty: Math.abs(Number(qty)),
+    time: timeStr, tStamp: now.getTime(),
+    type: '盤點調劑台', dispType: '', loc: loc, tableId: tId, status: '成立',
+    userId: session.id, userName: session.name
   });
 
-  if (batchArray.length === 0) return alert('請至少輸入一筆藥品數量再送出！');
+  // 4. 移除該張卡片並更新徽章
+  const uncountedLength = tableData.items.filter(i => !i.hasCounted).length; 
+  const uncountedBadge = document.getElementById('count-desk-uncounted'); 
+  if (uncountedBadge) uncountedBadge.innerText = uncountedLength;
+  
+  const card = inputEl.closest('.drug-card'); 
+  if (card) { 
+    card.style.display = 'none'; 
+    setTimeout(() => { 
+      card.remove(); 
+      if (uncountedLength === 0) { 
+        const area = document.getElementById('monthly-desk-area'); 
+        if (area) {
+          area.insertAdjacentHTML('beforeend', '<div class="text-center p-4 text-muted fw-bold">所有藥品皆已盤點完成</div>');
+        }
+        // 🌟 當本區最後一筆藥品也盤完時，直接主動打包上傳！
+        flushDeskQueue({ showBlockingLoader: true, onComplete: () => refreshMonthlyData(true) });
+      } 
+    }, 10);
+  }
 
-  // 呼叫進度條模式的 Loading
-  toggleLoader(true, `📦 正在打包送出 ${batchArray.length} 筆資料...`, true);
-
-  fetchBackend('syncBatchOfflineData', { batchArray: JSON.stringify(batchArray) })
-    .then(res => {
-      if (res && res.success) {
-        // 伺服器確認寫入成功後，才清除這些儲位的本地草稿
-        clearDeskDrafts(submittedLocs);
-        toggleLoader(false, '', true);
-        
-        setTimeout(() => {
-           showToast(`🎉 成功批次寫入 ${batchArray.length} 筆資料！`);
-           refreshMonthlyData(true); 
-        }, 700);
-      } else {
-        toggleLoader(false, '', true);
-        alert("❌ 批次寫入失敗（您的輸入已安全保留在畫面中）：" + (res ? res.message : '未知錯誤'));
-      }
-    })
-    .catch(err => {
-      toggleLoader(false, '', true);
-      alert("⚠️ 網路連線異常，請稍後再按一次送出（您的輸入已安全保留）：" + err.message);
-    });
+  // 5. 確保 60 秒自動打包計時器啟動中
+  startDeskAutoSyncTimer();
 }
 
 export function renderAllRecordLists() { 
@@ -541,6 +755,15 @@ document.addEventListener('click', function(e) {
 });
 
 export async function editRecord(sn) {
+  // 若這筆紀錄還在本地佇列尚未打包上傳，先強制打包取得正式流水號
+  if (String(sn).startsWith('PENDING_')) {
+    await flushDeskQueue({ showBlockingLoader: true });
+    await new Promise(resolve => loadUserRecords(resolve));
+    const loc = String(sn).replace('PENDING_', '');
+    const updatedRec = allRecordsData.find(r => r.loc === loc && r.type === '盤點調劑台');
+    if (updatedRec) sn = updatedRec.sn;
+  }
+
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
   const newQty = await new Promise(resolve => {
@@ -578,6 +801,14 @@ export async function editRecord(sn) {
 }
 
 export async function toggleMonthlyRecordStatus(sn, newStatus) {
+  if (String(sn).startsWith('PENDING_')) {
+    await flushDeskQueue({ showBlockingLoader: true });
+    await new Promise(resolve => loadUserRecords(resolve));
+    const loc = String(sn).replace('PENDING_', '');
+    const updatedRec = allRecordsData.find(r => r.loc === loc && r.type === '盤點調劑台');
+    if (updatedRec) sn = updatedRec.sn;
+  }
+
   const record = allRecordsData.find(r => r.sn === sn);
   if (!record) return;
 
@@ -612,29 +843,47 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     .then(res => { refreshDashboardDataSilently(); }).catch(err => { console.warn('狀態更新已送出，前端略過錯誤'); });
 }
 
-export function refreshMonthlyData(force = false) {
-  // 🛡️ 若手動按右上角「更新」按鈕，且畫面有未送出資料時提醒
-  const tabDispense = document.getElementById('tab-dispense');
-  const areaDeskInput = document.getElementById('area-desk-input');
-  const isDeskVisible = tabDispense && !tabDispense.classList.contains('d-none') && areaDeskInput && !areaDeskInput.classList.contains('d-none');
-  if (!force && isDeskVisible && getUnsavedDeskCount() > 0) {
-    if (!confirm(`⚠️ 畫面上有 ${getUnsavedDeskCount()} 筆尚未打包送出的數量，確定要重新整理嗎？\n（重整後未盤點的草稿仍會自動保留）`)) {
-      return;
-    }
+export function refreshMonthlyData(skipFlush = false) {
+  // 🌟 按下右上角「更新」時，若佇列還有待傳資料，先主動打包送出再抓取最新進度
+  if (!skipFlush && getDeskPendingQueue().length > 0) {
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: () => refreshMonthlyData(true)
+    });
+    return;
   }
 
   toggleLoader(true);
   fetchBackend('getMonthlyInitData').then(res => {
     monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
-    loadUserRecords(() => { renderMonthlyDesk(); renderMonthlyDashboard(); toggleLoader(false); showToast('資料已同步至最新'); });
+    loadUserRecords(() => { 
+      applyPendingQueueToLocalState();
+      renderMonthlyDesk(); 
+      renderMonthlyDashboard(); 
+      toggleLoader(false); 
+      showToast('資料已同步至最新'); 
+    });
   }).catch(err => { toggleLoader(false); alert("更新失敗"); });
 }
 
 export function refreshDashboardData() {
-  toggleLoader(true); fetchBackend('getMonthlyInitData').then(res => { monthlyTables = res.tables; renderMonthlyDashboard(); toggleLoader(false); showToast('進度已同步更新'); }).catch(err => { toggleLoader(false); alert("更新失敗"); });
+  toggleLoader(true); 
+  fetchBackend('getMonthlyInitData').then(res => { 
+    monthlyTables = res.tables; 
+    applyPendingQueueToLocalState();
+    renderMonthlyDashboard(); 
+    toggleLoader(false); 
+    showToast('進度已同步更新'); 
+  }).catch(err => { toggleLoader(false); alert("更新失敗"); });
 }
 
-export function refreshDashboardDataSilently() { fetchBackend('getMonthlyInitData').then(res => { monthlyTables = res.tables; renderMonthlyDashboard(); }).catch(e => console.warn('背景更新進度失敗')); }
+export function refreshDashboardDataSilently() { 
+  fetchBackend('getMonthlyInitData').then(res => { 
+    monthlyTables = res.tables; 
+    applyPendingQueueToLocalState();
+    renderMonthlyDashboard(); 
+  }).catch(e => console.warn('背景更新進度失敗')); 
+}
 
 export function renderMonthlyDashboard() {
   const unfinishedArea = document.getElementById('dashboard-unfinished'); const finishedArea = document.getElementById('dashboard-finished');
@@ -657,16 +906,24 @@ export function enterTableInventory(tableId, tableName) {
 }
 
 export function handleMonthlyBack() {
+  // 🌟 按下「返回」時，若佇列中有未打包資料，先主動執行進度條打包再退回看板
+  if (getDeskPendingQueue().length > 0) {
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: (success) => {
+        if (success) executeMonthlyBack();
+      }
+    });
+    return;
+  }
+  executeMonthlyBack();
+}
+
+function executeMonthlyBack() {
   const tabs = document.getElementById('monthly-tabs');
   if (tabs.classList.contains('d-none')) {
-    // 🛡️ 在調劑台盤點畫面按下「返回」時檢查
-    if (getUnsavedDeskCount() > 0) {
-      if (!confirm(`⚠️ 您還有 ${getUnsavedDeskCount()} 筆已填寫的藥品尚未按「打包送出」！\n（雖然下次點進來會自動還原草稿，但雲端目前還沒有這筆紀錄）\n\n確定要先返回看板嗎？`)) {
-        return;
-      }
-    }
     tabs.classList.remove('d-none'); document.getElementById('btn-monthly-back').classList.add('d-none'); document.getElementById('monthly-app-title').innerHTML = '<i class="bi bi-calendar-month"></i> 月盤點作業'; 
-    switchMonthlyTab('tab-dashboard'); refreshDashboardData(); 
+    executeSwitchMonthlyTab('tab-dashboard'); refreshDashboardData(); 
   } else { switchView('view-mode-select'); }
 }
 
@@ -679,7 +936,7 @@ export function showTableDetailModal(tableId, tableName) {
   const tbodyHtml = table.items.map(item => {
     const userName = item.hasCounted ? (item.countedUser || '系統') : '-';
     const timeStr = item.hasCounted ? (item.countedTime || '-') : '-';
-    const qtyStr = item.hasCounted ? (item.countedQty || '已盤') : '-';
+    const qtyStr = item.hasCounted ? (item.countedQty !== '' ? item.countedQty : '已盤') : '-';
     const modifyStr = (item.hasCounted && item.updateUser) ? `<div class="small fw-bold text-dark">${item.updateUser}</div><div class="text-muted" style="font-size: 0.65rem;">${item.updateTime}</div>` : '-';
 
     return `
