@@ -12,7 +12,7 @@ import {
 import { 
   initMonthlyMode, switchMonthlyTab, switchStockSubTab, switchDeskSubTab, switchOnlineSubTab, switchRecordsSubTab,
   handleStockSearch, handleOnlineSearch, selectStockDrug, selectOnlineDrug, 
-  handleTableSelectChange, submitMonthlyDeskOne, submitMonthlyStock, submitMonthlyOnline, 
+  handleTableSelectChange, submitMonthlyDeskBatch, submitMonthlyStock, submitMonthlyOnline, 
   updateOnlineUI, startLiveScanner, closeLiveScanner, parseBarcodeAndSubmit, 
   loadUserRecords, handleRecordFilterSearch, clearRecordFilter, applyRecordFilter, 
   editRecord, toggleMonthlyRecordStatus, refreshMonthlyData,
@@ -149,7 +149,7 @@ window.handleOnlineSearch = handleOnlineSearch;
 window.selectStockDrug = selectStockDrug;
 window.selectOnlineDrug = selectOnlineDrug;
 window.handleTableSelectChange = handleTableSelectChange;
-window.submitMonthlyDeskOne = submitMonthlyDeskOne;
+window.submitMonthlyDeskBatch = submitMonthlyDeskBatch; // 🌟 替換為批次送出
 window.submitMonthlyStock = submitMonthlyStock;
 window.submitMonthlyOnline = submitMonthlyOnline;
 window.updateOnlineUI = updateOnlineUI;
@@ -183,7 +183,6 @@ window.submitDrugNote = submitDrugNote;
 window.voidDrugNote = voidDrugNote;
 
 window.enterTableInventory = enterTableInventory;
-// window.handleMonthlyBack = handleMonthlyBack; // 已經在上方覆寫保護了
 window.refreshMonthlyData = refreshMonthlyData;
 
 // ==========================================
@@ -245,6 +244,8 @@ window.calcConfirm = function() {
     const target = document.getElementById(calcTargetId);
     if (target) {
         target.value = calcExpression;
+        // 🌟 觸發 input 事件，讓月盤點的「已填寫 X 筆」徽章可以即時反應
+        target.dispatchEvent(new Event('input')); 
     }
   }
   window.bootstrap.Modal.getInstance(document.getElementById('calculatorModal')).hide();
