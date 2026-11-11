@@ -1,5 +1,5 @@
 import { WEB_APP_URL, CF_WORKER_URL, currentDept } from './config.js';
-import { updateSyncUI, showToast, toggleLoader } from './ui.js';
+import { updateSyncUI, showToast } from './ui.js';
 
 export let activeUploads = 0;
 export let isSyncing = false;
@@ -59,11 +59,10 @@ export async function syncOfflineData() {
 }
 
 // ==========================================
-// 🛡️ 升級版：支援斷網攔截與 CF 分流的 fetchBackend
+// 🛡️ 支援 CF 分流的 fetchBackend
 // ==========================================
 export function fetchBackend(action, data = {}, retryCount = 3) {
   return new Promise((resolve, reject) => {
-    // 💡 只有這些會改變資料庫的動作，才允許進入離線佇列
     const isCriticalWrite = ['submitInventory', 'modifyDailyRecord', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'saveDrugNote', 'saveAdminSortData'].includes(action);
 
     if (isCriticalWrite) {
@@ -71,7 +70,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       updateSyncUI(activeUploads);
     }
 
-    // 🌟 核心修改：把部門代號 dept 一併塞進 payload 給 Cloudflare 分流
+    // 將部門代號 dept 一併塞進 payload 給 Cloudflare 分流
     const payload = { action: action, dept: currentDept };
     
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
@@ -82,16 +81,14 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
 
     const isLargeData = (action === 'saveAdminSortData');
     
-    // 🌟 定義哪些動作要走 Cloudflare 高速通道 (包含監控 CF 待傳數量的 checkPendingSync)
-    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'checkPendingSync'];
+    // 定義哪些動作要走 Cloudflare 高速通道
+    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'];
     
-    // 🌟 智慧分流：CF 動作走 CF_WORKER_URL，其他走 GAS 的 WEB_APP_URL
     let finalUrl = cfActions.includes(action) ? CF_WORKER_URL : WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
     if (isLargeData || cfActions.includes(action)) {
       fetchOptions.method = 'POST';
-      // 注意：CF 接收 application/json，舊版 GAS 接收 text/plain 以避免 CORS 錯誤
       fetchOptions.headers = { "Content-Type": cfActions.includes(action) ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" };
       fetchOptions.body = JSON.stringify(payload);
     } else {
@@ -104,7 +101,6 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     }
 
     const attemptFetch = (retriesLeft) => {
-      // 🌟 【防線 1】：如果系統判定已經沒有網路，直接進入離線佇列
       if (!navigator.onLine && isCriticalWrite) {
         const queue = getOfflineQueue();
         queue.push({ id: Date.now().toString() + Math.random(), action, data });
@@ -122,11 +118,6 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
         return response.json();
       })
       .then(result => {
-        // 🌟 成功寫入 CF 後，立刻啟動背景徽章監控，告訴藥師還有幾筆沒進 GAS
-        if (result.success && ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'].includes(action)) {
-           startCFSyncPolling();
-        }
-
         if (!result.success && result.message && result.message.includes('忙線中')) {
           if (retriesLeft > 0) {
             setTimeout(() => attemptFetch(retriesLeft - 1), 1000 + Math.random() * 1000);
@@ -148,7 +139,6 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
         if (retriesLeft > 0) {
           setTimeout(() => attemptFetch(retriesLeft - 1), 1500);
         } else {
-          // 🌟 【防線 2】：重試 3 次還是失敗，進入離線佇列
           if (isCriticalWrite) {
             const queue = getOfflineQueue();
             queue.push({ id: Date.now().toString() + Math.random(), action, data });
