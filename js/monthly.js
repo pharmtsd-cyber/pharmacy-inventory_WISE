@@ -1,4 +1,4 @@
-import { fetchBackend } from './api.js';
+import { fetchBackend, ensureDataSynced } from './api.js';
 import { toggleLoader, switchView, showToast, playBeep, requestWakeLock, releaseWakeLock } from './ui.js';
 import { session } from './config.js';
 
@@ -7,6 +7,9 @@ export let activeRecordFilters = { stock: null, desk: null, online: null, record
 export let html5QrCode = null; export let stockSelectedDrug = null; export let onlineSelectedDrug = null;
 export let barcodeQtyResolve = null; export let allRecordsData = [];
 
+// ==========================================
+// 🚀 月盤點初始化 (加入 CF 同步遮罩)
+// ==========================================
 export function initMonthlyMode() {
   switchView('view-monthly-app'); switchMonthlyTab('tab-dashboard'); 
   document.querySelectorAll('input[name="actionType"]').forEach(radio => { if (radio.value !== '手動') radio.checked = true; });
@@ -25,20 +28,19 @@ export function initMonthlyMode() {
   const startInput = document.getElementById('filter-date-start'); if (startInput) startInput.value = todayStr;
   const endInput = document.getElementById('filter-date-end'); if (endInput) endInput.value = todayStr;
 
-  toggleLoader(true);
-  fetchBackend('getMonthlyInitData').then(res => {
-    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
-    const select = document.getElementById('monthly-table-select'); if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-    
-    loadUserRecords(() => { 
-      // 🌟 在這裡加入冷熱資料合併魔法！
-      mergeUnsyncedFromCF(() => {
+  // 🌟 使用強制遮罩引擎包覆載入動作，確保舊資料與 CF 新資料完美一致才放行
+  ensureDataSynced(() => {
+    fetchBackend('getMonthlyInitData').then(res => {
+      monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+      const select = document.getElementById('monthly-table-select'); 
+      if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+      
+      loadUserRecords(() => { 
         renderMonthlyDashboard(); 
         toggleLoader(false); 
       });
-    });
-    
-  }).catch(err => { toggleLoader(false); alert("載入失敗"); });
+    }).catch(err => { toggleLoader(false); alert("載入失敗"); });
+  });
 }
 
 export function startLiveScanner() {
@@ -501,22 +503,22 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     .then(res => { refreshDashboardDataSilently(); }).catch(err => { console.warn('狀態更新已送出，前端略過錯誤'); });
 }
 
+// ==========================================
+// 🚀 手動更新盤點資料 (加入 CF 同步遮罩)
+// ==========================================
 export function refreshMonthlyData() {
-  toggleLoader(true);
-  fetchBackend('getMonthlyInitData').then(res => {
-    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
-    loadUserRecords(() => { 
-      
-      // 🌟 在這裡呼叫合併魔法！
-      mergeUnsyncedFromCF(() => { 
+  // 🌟 點擊更新時，強制遮罩直到 CF 清空
+  ensureDataSynced(() => {
+    fetchBackend('getMonthlyInitData').then(res => {
+      monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+      loadUserRecords(() => { 
         renderMonthlyDesk(); 
         renderMonthlyDashboard(); 
         toggleLoader(false); 
         showToast('資料已同步至最新'); 
       });
-
-    });
-  }).catch(err => { toggleLoader(false); alert("更新失敗"); });
+    }).catch(err => { toggleLoader(false); alert("更新失敗"); });
+  });
 }
 
 export function refreshDashboardData() {
