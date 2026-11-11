@@ -168,3 +168,59 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     attemptFetch(retryCount);
   });
 }
+
+// ==========================================
+// 🚀 狀態監控引擎：背景輪詢 CF 待傳數量
+// ==========================================
+let cfPollTimer = null;
+
+export function startCFSyncPolling() {
+  if (cfPollTimer) return;
+  const syncBadge = document.getElementById('nav-sync-status');
+  
+  cfPollTimer = setInterval(() => {
+    fetchBackend('checkPendingSync').then(res => {
+      if (res && res.success) {
+        if (res.pendingCount > 0) {
+          if (syncBadge) {
+            syncBadge.style.display = 'inline-block';
+            syncBadge.className = 'badge bg-warning text-dark shadow-sm ms-2';
+            syncBadge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 等待倒回表單: ${res.pendingCount} 筆`;
+          }
+        } else {
+          if (syncBadge) {
+            syncBadge.className = 'badge bg-success text-white shadow-sm ms-2';
+            syncBadge.innerHTML = `<i class="bi bi-cloud-check-fill"></i> 已全數寫入表單`;
+            setTimeout(() => { if (syncBadge.innerHTML.includes('已全數寫入')) syncBadge.style.display = 'none'; }, 3000);
+          }
+          clearInterval(cfPollTimer);
+          cfPollTimer = null;
+        }
+      }
+    });
+  }, 3000); // 每 3 秒查一次
+}
+
+// ==========================================
+// 🛡️ 強制遮罩引擎：必須等 CF 清空才能執行下一步
+// ==========================================
+import { toggleLoader } from './ui.js';
+
+export function ensureDataSynced(callback) {
+  toggleLoader(true); // 立刻叫出遮罩
+  const loaderText = document.querySelector('#loader .text-academic');
+  if (loaderText) loaderText.innerText = '等待資料寫入 Google 表單...';
+
+  const check = () => {
+    fetchBackend('checkPendingSync').then(res => {
+      // 只要待傳數量 = 0，就解除封印，執行 callback！
+      if (res && res.success && res.pendingCount === 0) {
+        if (loaderText) loaderText.innerText = '系統處理中...'; // 復原文字
+        callback();
+      } else {
+        setTimeout(check, 3000); // 還沒清空，3秒後再查一次
+      }
+    }).catch(() => setTimeout(check, 3000));
+  };
+  check();
+}
