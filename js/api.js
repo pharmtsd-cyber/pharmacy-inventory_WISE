@@ -1,4 +1,4 @@
-import { WEB_APP_URL, CF_WORKER_URL } from './config.js';
+import { WEB_APP_URL, CF_WORKER_URL, currentDept } from './config.js';
 import { updateSyncUI, showToast } from './ui.js';
 
 export let activeUploads = 0;
@@ -71,7 +71,6 @@ export async function syncOfflineData() {
 // ==========================================
 export function fetchBackend(action, data = {}, retryCount = 3) {
   return new Promise((resolve, reject) => {
-    // 💡 只有這些會改變資料庫的動作，才允許進入離線佇列
     const isCriticalWrite = ['submitInventory', 'modifyDailyRecord', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'saveDrugNote', 'saveAdminSortData'].includes(action);
 
     if (isCriticalWrite) {
@@ -79,7 +78,8 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       updateSyncUI(activeUploads);
     }
 
-    const payload = { action: action };
+    // 🌟 2. 這裡是最重要的修改：把 dept 塞進 payload 裡！
+    const payload = { action: action, dept: currentDept };
     
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
       Object.assign(payload, data);
@@ -88,11 +88,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     }
 
     const isLargeData = (action === 'saveAdminSortData');
-    
-    // 🌟 1. 定義哪些動作要走 Cloudflare 高速通道 (針對月盤點高併發)
     const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'];
-    
-    // 🌟 2. 智慧分流：如果是 CF 動作就走 CF_WORKER_URL，否則走原本的 WEB_APP_URL
     let finalUrl = cfActions.includes(action) ? CF_WORKER_URL : WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
