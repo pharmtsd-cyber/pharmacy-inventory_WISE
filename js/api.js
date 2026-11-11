@@ -1,4 +1,4 @@
-import { WEB_APP_URL } from './config.js';
+import { WEB_APP_URL, currentDept } from './config.js'; // 🌟 新增引入 currentDept
 import { updateSyncUI, showToast } from './ui.js';
 
 export let activeUploads = 0;
@@ -71,7 +71,6 @@ export async function syncOfflineData() {
 // ==========================================
 export function fetchBackend(action, data = {}, retryCount = 3) {
   return new Promise((resolve, reject) => {
-    // 💡 只有這些會改變資料庫的動作，才允許進入離線佇列
     const isCriticalWrite = ['submitInventory', 'modifyDailyRecord', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'saveDrugNote', 'saveAdminSortData'].includes(action);
 
     if (isCriticalWrite) {
@@ -79,7 +78,11 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       updateSyncUI(activeUploads);
     }
 
-    const payload = { action: action };
+    // 🌟 關鍵修改：讓每一個請求都自動帶上 dept，這樣 D1 才知道是哪個單位的資料！
+    const payload = { 
+      action: action,
+      dept: currentDept || 'admin' // 如果沒有單位參數，預設視為 admin
+    };
     
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
       Object.assign(payload, data);
