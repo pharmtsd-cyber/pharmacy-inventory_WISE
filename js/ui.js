@@ -42,7 +42,7 @@ export function updateSyncUI(activeCount) {
 }
 
 // ==========================================
-// 🛡️ 安全的全螢幕載入動畫 (具備防重入保護，防止 DOM 渲染錯亂)
+// 🛡️ 安全的全螢幕載入動畫 (具備防重入保護)
 // ==========================================
 let isLoaderActive = false;
 
@@ -53,7 +53,6 @@ export function toggleLoader(show, customText = '系統處理中...') {
   const loaderText = loader.querySelector('.text-academic');
 
   if (show) {
-    // 如果已經在顯示中，就只更新文字，不重新觸發 DOM 展開，防止動畫與旋轉錯亂
     if (loaderText) loaderText.innerText = customText;
     
     if (!isLoaderActive) {
@@ -63,7 +62,7 @@ export function toggleLoader(show, customText = '系統處理中...') {
   } else {
     isLoaderActive = false;
     loader.style.display = 'none';
-    if (loaderText) loaderText.innerText = '系統處理中...'; // 復原預設文字
+    if (loaderText) loaderText.innerText = '系統處理中...'; 
   }
 }
 
