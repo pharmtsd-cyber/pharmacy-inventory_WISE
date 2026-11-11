@@ -41,11 +41,61 @@ export function updateSyncUI(activeCount) {
   }
 }
 
-// 切換全螢幕載入動畫
-export function toggleLoader(show) {
+let progressInterval = null;
+
+// 切換全螢幕載入動畫 (支援進度條模式)
+export function toggleLoader(show, text = '系統處理中...', isBatch = false) {
   const loader = document.getElementById('loader');
-  if (loader) {
-    loader.style.display = show ? 'flex' : 'none';
+  if (!loader) return;
+
+  const loaderText = document.getElementById('loader-text');
+  const spinner = document.getElementById('loader-spinner');
+  const progressContainer = document.getElementById('loader-progress-container');
+  const progressBar = document.getElementById('loader-progress-bar');
+  
+  if (show) {
+    if (loaderText) loaderText.innerText = text;
+    
+    // 如果是批次處理，顯示進度條並隱藏轉圈圈
+    if (isBatch && progressContainer) {
+      if (spinner) spinner.classList.add('d-none');
+      progressContainer.classList.remove('d-none');
+      progressBar.classList.remove('bg-success'); // 重置顏色
+      progressBar.classList.add('bg-academic');
+      progressBar.style.width = '0%';
+      progressBar.innerText = '0%';
+      
+      let currentProgress = 0;
+      clearInterval(progressInterval);
+      // 模擬進度推進，跑到 90% 會停住等待伺服器
+      progressInterval = setInterval(() => {
+        if (currentProgress < 90) {
+          currentProgress += Math.floor(Math.random() * 15) + 5; 
+          if (currentProgress > 90) currentProgress = 90;
+          progressBar.style.width = currentProgress + '%';
+          progressBar.innerText = currentProgress + '%';
+        }
+      }, 400);
+    } else {
+      // 一般的轉圈圈模式
+      if (spinner) spinner.classList.remove('d-none');
+      if (progressContainer) progressContainer.classList.add('d-none');
+    }
+    loader.style.display = 'flex';
+  } else {
+    clearInterval(progressInterval);
+    // 關閉時，如果是進度條模式，先填滿 100% 展現成功感再消失
+    if (isBatch && progressContainer && !progressContainer.classList.contains('d-none')) {
+       progressBar.classList.remove('bg-academic');
+       progressBar.classList.add('bg-success');
+       progressBar.style.width = '100%';
+       progressBar.innerText = '100%';
+       setTimeout(() => {
+         loader.style.display = 'none';
+       }, 600); // 留 0.6 秒讓使用者看到 100% 成功
+    } else {
+       loader.style.display = 'none';
+    }
   }
 }
 
