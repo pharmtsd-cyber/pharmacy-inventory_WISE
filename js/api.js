@@ -1,4 +1,4 @@
-import { WEB_APP_URL, CF_WORKER_URL, currentDept } from './config.js';
+import { WEB_APP_URL } from './config.js';
 import { updateSyncUI, showToast } from './ui.js';
 
 export let activeUploads = 0;
@@ -18,7 +18,7 @@ function saveOfflineQueue(queue) {
 }
 
 // ==========================================
-// 🚀 背景批次自動同步引擎 (離線恢復用)
+// 🚀 升級版：背景批次自動同步引擎
 // ==========================================
 export async function syncOfflineData() {
   if (isSyncing || !navigator.onLine) return;
@@ -26,18 +26,25 @@ export async function syncOfflineData() {
   if (queue.length === 0) return;
 
   isSyncing = true;
-  activeUploads++; 
+  activeUploads++; // 整個批次算作 1 個大型任務
   updateSyncUI(activeUploads);
   showToast(`📡 網路恢復！開始打包同步 ${queue.length} 筆離線資料...`, 'success');
 
   try {
+    // 🌟 將整個陣列打包成一個 POST 包裹
     const fetchOptions = {
       method: 'POST',
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: 'syncBatchOfflineData', batchArray: queue })
+      body: JSON.stringify({ 
+        action: 'syncBatchOfflineData', 
+        batchArray: queue 
+      })
     };
 
+    // 只需要發送一次請求！
     const res = await fetch(WEB_APP_URL, fetchOptions);
+    
+    // 解決 GAS POST 回傳時可能產生的 CORS 導向錯誤 (TypeError)
     if (res.ok || res.type === 'opaque') {
        saveOfflineQueue([]);
        showToast(`🎉 成功批次上傳 ${queue.length} 筆暫存資料！`, 'success');
@@ -49,6 +56,7 @@ export async function syncOfflineData() {
        showToast(`🎉 成功批次上傳 ${queue.length} 筆暫存資料！`, 'success');
        window.dispatchEvent(new CustomEvent('offline-sync-complete'));
     } else {
+       console.warn('⚠️ 批次同步連線異常，保留至下次：', err);
        showToast('⚠️ 批次同步連線不穩，將於背景自動重試', 'delete');
     }
   } finally {
@@ -59,10 +67,11 @@ export async function syncOfflineData() {
 }
 
 // ==========================================
-// 🛡️ 支援 CF 分流的 fetchBackend
+// 🛡️ 升級版：支援斷網攔截的 fetchBackend
 // ==========================================
 export function fetchBackend(action, data = {}, retryCount = 3) {
   return new Promise((resolve, reject) => {
+    // 💡 只有這些會改變資料庫的動作，才允許進入離線佇列
     const isCriticalWrite = ['submitInventory', 'modifyDailyRecord', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'saveDrugNote', 'saveAdminSortData'].includes(action);
 
     if (isCriticalWrite) {
@@ -70,8 +79,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       updateSyncUI(activeUploads);
     }
 
-    // 將部門代號 dept 一併塞進 payload 給 Cloudflare 分流
-    const payload = { action: action, dept: currentDept };
+    const payload = { action: action };
     
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
       Object.assign(payload, data);
@@ -80,16 +88,12 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     }
 
     const isLargeData = (action === 'saveAdminSortData');
-    
-    // 定義哪些動作要走 Cloudflare 高速通道
-    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'];
-    
-    let finalUrl = cfActions.includes(action) ? CF_WORKER_URL : WEB_APP_URL;
+    let finalUrl = WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
-    if (isLargeData || cfActions.includes(action)) {
+    if (isLargeData) {
       fetchOptions.method = 'POST';
-      fetchOptions.headers = { "Content-Type": cfActions.includes(action) ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" };
+      fetchOptions.headers = { "Content-Type": "text/plain;charset=utf-8" };
       fetchOptions.body = JSON.stringify(payload);
     } else {
       fetchOptions.method = 'GET';
@@ -97,10 +101,11 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       for (const key in payload) {
         params.append(key, payload[key]);
       }
-      finalUrl = `${finalUrl}?${params.toString()}`;
+      finalUrl = `${WEB_APP_URL}?${params.toString()}`;
     }
 
     const attemptFetch = (retriesLeft) => {
+      // 🌟 【防線 1】：如果系統判定已經沒有網路，直接進入離線佇列
       if (!navigator.onLine && isCriticalWrite) {
         const queue = getOfflineQueue();
         queue.push({ id: Date.now().toString() + Math.random(), action, data });
@@ -139,6 +144,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
         if (retriesLeft > 0) {
           setTimeout(() => attemptFetch(retriesLeft - 1), 1500);
         } else {
+          // 🌟 【防線 2】：重試 3 次還是失敗（可能遇到醫院死角），進入離線佇列
           if (isCriticalWrite) {
             const queue = getOfflineQueue();
             queue.push({ id: Date.now().toString() + Math.random(), action, data });
@@ -159,63 +165,4 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
 
     attemptFetch(retryCount);
   });
-}
-
-// ==========================================
-// 🚀 狀態監控引擎：背景輪詢 CF 待傳數量
-// ==========================================
-let cfPollTimer = null;
-
-export function startCFSyncPolling() {
-  if (cfPollTimer) return;
-  const syncBadge = document.getElementById('nav-sync-status');
-  
-  cfPollTimer = setInterval(() => {
-    fetchBackend('checkPendingSync').then(res => {
-      if (res && res.success) {
-        if (res.pendingCount > 0) {
-          if (syncBadge) {
-            syncBadge.style.display = 'inline-block';
-            syncBadge.className = 'badge bg-warning text-dark shadow-sm ms-2';
-            syncBadge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 10px; height: 10px;"></span> 待存入表單: ${res.pendingCount} 筆`;
-          }
-        } else {
-          if (syncBadge) {
-            syncBadge.className = 'badge bg-success text-white shadow-sm ms-2';
-            syncBadge.innerHTML = `<i class="bi bi-cloud-check-fill"></i> 已全數存入表單`;
-            setTimeout(() => { if (syncBadge.innerHTML.includes('已全數存入')) syncBadge.style.display = 'none'; }, 3000);
-          }
-          clearInterval(cfPollTimer);
-          cfPollTimer = null;
-        }
-      }
-    });
-  }, 3000); // 每 3 秒查一次
-}
-
-// ==========================================
-// 🛡️ 強制遮罩引擎：安全等待 CF 清空
-// ==========================================
-export function ensureDataSynced(callback) {
-  // 呼叫安全的 toggleLoader，傳入自定義文字
-  toggleLoader(true, '等待資料寫入 Google 表單...');
-
-  const check = () => {
-    fetchBackend('checkPendingSync').then(res => {
-      // 只要待傳數量 = 0，關閉遮罩並執行 callback！
-      if (res && res.success && res.pendingCount === 0) {
-        toggleLoader(false); // 關閉防護罩
-        callback();
-      } else {
-        // 還沒清空，繼續安靜在背景等待，不重複操作 DOM
-        setTimeout(check, 3000); 
-      }
-    }).catch(() => {
-      // 若網路臨時異常，3秒後重試，不中斷遮罩
-      setTimeout(check, 3000);
-    });
-  };
-  
-  // 啟動第一次檢查
-  check();
 }

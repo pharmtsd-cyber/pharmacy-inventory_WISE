@@ -41,28 +41,11 @@ export function updateSyncUI(activeCount) {
   }
 }
 
-// ==========================================
-// 🛡️ 安全的全螢幕載入動畫 (具備防重入保護)
-// ==========================================
-let isLoaderActive = false;
-
-export function toggleLoader(show, customText = '系統處理中...') {
+// 切換全螢幕載入動畫
+export function toggleLoader(show) {
   const loader = document.getElementById('loader');
-  if (!loader) return;
-
-  const loaderText = loader.querySelector('.text-academic');
-
-  if (show) {
-    if (loaderText) loaderText.innerText = customText;
-    
-    if (!isLoaderActive) {
-      isLoaderActive = true;
-      loader.style.display = 'flex';
-    }
-  } else {
-    isLoaderActive = false;
-    loader.style.display = 'none';
-    if (loaderText) loaderText.innerText = '系統處理中...'; 
+  if (loader) {
+    loader.style.display = show ? 'flex' : 'none';
   }
 }
 

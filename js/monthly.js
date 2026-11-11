@@ -1,4 +1,4 @@
-import { fetchBackend, ensureDataSynced } from './api.js';
+import { fetchBackend } from './api.js';
 import { toggleLoader, switchView, showToast, playBeep, requestWakeLock, releaseWakeLock } from './ui.js';
 import { session } from './config.js';
 
@@ -7,9 +7,6 @@ export let activeRecordFilters = { stock: null, desk: null, online: null, record
 export let html5QrCode = null; export let stockSelectedDrug = null; export let onlineSelectedDrug = null;
 export let barcodeQtyResolve = null; export let allRecordsData = [];
 
-// ==========================================
-// 🚀 月盤點初始化 (加入 CF 同步遮罩)
-// ==========================================
 export function initMonthlyMode() {
   switchView('view-monthly-app'); switchMonthlyTab('tab-dashboard'); 
   document.querySelectorAll('input[name="actionType"]').forEach(radio => { if (radio.value !== '手動') radio.checked = true; });
@@ -28,19 +25,12 @@ export function initMonthlyMode() {
   const startInput = document.getElementById('filter-date-start'); if (startInput) startInput.value = todayStr;
   const endInput = document.getElementById('filter-date-end'); if (endInput) endInput.value = todayStr;
 
-  // 🌟 使用強制遮罩引擎包覆載入動作，確保舊資料與 CF 新資料完美一致才放行
-  ensureDataSynced(() => {
-    fetchBackend('getMonthlyInitData').then(res => {
-      monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
-      const select = document.getElementById('monthly-table-select'); 
-      if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-      
-      loadUserRecords(() => { 
-        renderMonthlyDashboard(); 
-        toggleLoader(false); 
-      });
-    }).catch(err => { toggleLoader(false); alert("載入失敗"); });
-  });
+  toggleLoader(true);
+  fetchBackend('getMonthlyInitData').then(res => {
+    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+    const select = document.getElementById('monthly-table-select'); if(select) select.innerHTML = monthlyTables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    loadUserRecords(() => { renderMonthlyDashboard(); toggleLoader(false); });
+  }).catch(err => { toggleLoader(false); alert("載入失敗"); });
 }
 
 export function startLiveScanner() {
@@ -503,22 +493,12 @@ export async function toggleMonthlyRecordStatus(sn, newStatus) {
     .then(res => { refreshDashboardDataSilently(); }).catch(err => { console.warn('狀態更新已送出，前端略過錯誤'); });
 }
 
-// ==========================================
-// 🚀 手動更新盤點資料 (加入 CF 同步遮罩)
-// ==========================================
 export function refreshMonthlyData() {
-  // 🌟 點擊更新時，強制遮罩直到 CF 清空
-  ensureDataSynced(() => {
-    fetchBackend('getMonthlyInitData').then(res => {
-      monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
-      loadUserRecords(() => { 
-        renderMonthlyDesk(); 
-        renderMonthlyDashboard(); 
-        toggleLoader(false); 
-        showToast('資料已同步至最新'); 
-      });
-    }).catch(err => { toggleLoader(false); alert("更新失敗"); });
-  });
+  toggleLoader(true);
+  fetchBackend('getMonthlyInitData').then(res => {
+    monthlyDrugMaster = res.drugMaster; monthlyTables = res.tables;
+    loadUserRecords(() => { renderMonthlyDesk(); renderMonthlyDashboard(); toggleLoader(false); showToast('資料已同步至最新'); });
+  }).catch(err => { toggleLoader(false); alert("更新失敗"); });
 }
 
 export function refreshDashboardData() {
@@ -594,30 +574,3 @@ export function openBarcodeQtyModal(drugName, drugInfo, defaultQty = '') {
 }
 window.confirmBarcodeQty = () => { const qty = document.getElementById('barcode-qty-input').value; if (qty === '' || qty <= 0) return alert('請輸入有效數量'); const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal')); modal.hide(); if (barcodeQtyResolve) barcodeQtyResolve(qty); };
 window.cancelBarcodeQty = () => { const modal = window.bootstrap.Modal.getInstance(document.getElementById('barcodeQtyModal')); modal.hide(); if (barcodeQtyResolve) barcodeQtyResolve(null); };
-
-// 🌟 全新功能：冷熱資料合併引擎 (將 CF 暫存疊加上 GAS 舊資料)
-export function mergeUnsyncedFromCF(callback) {
-  fetchBackend('getUnsyncedRecords').then(res => {
-    if (res && res.success && res.unsynced) {
-      res.unsynced.forEach(row => {
-        // 1. 蓋掉盤點表狀態 (不讓它跑回未盤點)
-        monthlyTables.forEach(t => t.items.forEach(i => {
-          if (i.drugCode === row.drugCode && i.locCode === row.locCode) {
-            i.hasCounted = (row.status === '成立');
-            i.countedQty = row.handQty;
-            i.countedUser = row.userName;
-          }
-        }));
-        
-        // 2. 補回軌跡紀錄 (如果在 GAS 裡還找不到)
-        if (!allRecordsData.find(r => r.sn === row.sn)) {
-           const timeStr = new Date(row.tStamp).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-           const rec = { sn: row.sn, code: row.drugCode, name: row.drugName, type: row.type, dispType: row.dispType, loc: row.locCode, handQty: Math.abs(row.handQty), qty: row.handQty, status: row.status, time: timeStr, tStamp: row.tStamp, userName: row.userName };
-           allRecordsData.unshift(rec);
-           if (row.userId === session.id || row.userName === session.name) myRecordsData.unshift(rec);
-        }
-      });
-    }
-    if (callback) callback();
-  }).catch(err => { if(callback) callback(); });
-}

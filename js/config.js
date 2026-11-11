@@ -49,6 +49,3 @@ export const DEPT_NAME = currentDept ? DEPT_NAME_MAP[currentDept] : '亞東紀�
 export const DEPT_COLOR = currentDept ? DEPT_COLOR_MAP[currentDept] : '#495057';
 
 export let session = { id: '', name: '', mode: '', isAdmin: false };
-
-// 🌟 🚀 新增：Cloudflare Worker 高速寫入專用網址
-export const CF_WORKER_URL = "https://femh-inventory-api.pharm-tsd.workers.dev";
