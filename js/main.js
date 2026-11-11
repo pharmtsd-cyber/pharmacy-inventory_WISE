@@ -1,4 +1,4 @@
-import { activeUploads, syncOfflineData } from './api.js'; 
+import { activeUploads, syncOfflineData, ensureDataSynced } from './api.js'; 
 import { session, DEPT_NAME, DEPT_COLOR, currentDept, MAINTENANCE_LINK_MAP } from './config.js';
 import { switchView } from './ui.js';
 import { handleLogin, handleLogout } from './auth.js';
@@ -51,7 +51,12 @@ window.handleMonthlyBack = function() {
     alert(`⚠️ 系統正在背景同步，請稍候幾秒鐘再離開。`);
     return;
   }
-  originalHandleMonthlyBack();
+  
+  // 🌟 返回前，強制用遮罩蓋住，等 CF 資料全數寫入 Google 表單後才放行退回首頁
+  ensureDataSynced(() => {
+    toggleLoader(false);
+    originalHandleMonthlyBack();
+  });
 };
 
 // ==========================================
@@ -61,21 +66,16 @@ window.addEventListener('online', syncOfflineData);
 document.addEventListener('DOMContentLoaded', syncOfflineData);
 
 function safeSilentRefresh() {
-  // 1. 偵測游標是否停留在任何輸入框 (打字中)
   const activeTagName = document.activeElement ? document.activeElement.tagName : '';
   const isTyping = (activeTagName === 'INPUT' || activeTagName === 'TEXTAREA');
-
-  // 2. 偵測畫面上是否有任何 Bootstrap 彈窗處於開啟狀態
   const hasOpenModal = document.querySelector('.modal.show') !== null;
 
-  // 🛡️ 如果藥師正在忙，則進入「等待模式」
   if (isTyping || hasOpenModal) {
     console.log('⏳ 藥師正在操作中，暫停畫面重繪，2秒後重試...');
     setTimeout(safeSilentRefresh, 2000); 
     return;
   }
 
-  // ✅ 安全執行畫面重繪
   if (session.mode === '月盤點') {
     loadUserRecords(() => { console.log('🔄 [靜默刷新] 月盤點軌跡已完美對齊'); });
     refreshDashboardDataSilently();
@@ -183,7 +183,6 @@ window.submitDrugNote = submitDrugNote;
 window.voidDrugNote = voidDrugNote;
 
 window.enterTableInventory = enterTableInventory;
-// window.handleMonthlyBack = handleMonthlyBack; // 已經在上方覆寫保護了
 window.refreshMonthlyData = refreshMonthlyData;
 
 // ==========================================
@@ -195,7 +194,6 @@ let calcExpression = '';
 window.openCalculator = function(targetId, title = '小算盤') {
   calcTargetId = targetId;
   const targetInput = document.getElementById(targetId);
-  // 如果輸入框已經有數字，就帶入作為算式開頭
   calcExpression = targetInput ? targetInput.value || '' : '';
   document.getElementById('calc-title').innerText = title;
   updateCalcDisplay();
@@ -224,11 +222,10 @@ window.calcBackspace = function() {
 window.calcEqual = function() {
   if (!calcExpression) return;
   try {
-    // 嚴格過濾字元，防止非法符號並進行安全運算
     const sanitized = calcExpression.toString().replace(/[^-()\d/*+.]/g, '');
     let result = new Function('return ' + sanitized)();
     if (result !== undefined && !isNaN(result)) {
-       result = Math.round(result * 1000) / 1000; // 解決 JavaScript 浮點數誤差
+       result = Math.round(result * 1000) / 1000;
        calcExpression = result.toString();
     } else {
        calcExpression = 'Error';
@@ -240,7 +237,7 @@ window.calcEqual = function() {
 };
 
 window.calcConfirm = function() {
-  calcEqual(); // 點擊確認時，自動把還沒按等於的算式結算出來
+  calcEqual();
   if (calcExpression !== 'Error' && calcExpression !== '') {
     const target = document.getElementById(calcTargetId);
     if (target) {
@@ -254,35 +251,30 @@ function updateCalcDisplay() {
   const display = document.getElementById('calc-display');
   if(display) {
       display.innerText = calcExpression || '0';
-      display.scrollLeft = display.scrollWidth; // 算式變長時自動往右捲動
+      display.scrollLeft = display.scrollWidth;
   }
 }
 
 // ==========================================
-// ✨ 全域模糊搜尋「鍵盤導航引擎」 (支援全系統所有搜尋框)
+// ✨ 全域模糊搜尋「鍵盤導航引擎」
 // ==========================================
 let globalSearchFocus = -1;
 let blockSearchKeyup = false;
 
-// 1. 捕獲階段攔截 keyup：防止按上下鍵或 Enter 後觸發原本的 onkeyup 重新搜尋
 window.addEventListener('keyup', function(e) {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
     if (blockSearchKeyup) {
-      e.stopPropagation(); // 封印事件，不讓它傳遞給 HTML 的 onkeyup
-      blockSearchKeyup = false; // 解除封印
+      e.stopPropagation();
+      blockSearchKeyup = false;
     }
   }
-}, true); // true 代表在最高層級就先攔截下來
+}, true);
 
-// 2. 監聽 keydown：處理上下移動與確認帶入
 document.addEventListener('keydown', function(e) {
-  // 確保目前是在輸入框裡面操作
   if (e.target.tagName !== 'INPUT') return;
   
-  // 自動尋找畫面上目前被打開的下拉選單 (支援各個分頁的 dropdown)
   const activeDropdown = Array.from(document.querySelectorAll('.search-dropdown, [id$="-dropdown"]')).find(d => d.style.display === 'block');
   
-  // 如果沒有下拉選單，就不介入，讓系統正常運作
   if (!activeDropdown) {
     globalSearchFocus = -1;
     return;
@@ -291,10 +283,9 @@ document.addEventListener('keydown', function(e) {
   const items = activeDropdown.getElementsByClassName('search-dropdown-item');
   if (items.length === 0) return;
 
-  // 如果按下的是上下鍵或 Enter
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
-    e.preventDefault(); // 防止游標亂跑或觸發預設表單送出
-    blockSearchKeyup = true; // 標記，要求接下來的 keyup 閉嘴
+    e.preventDefault();
+    blockSearchKeyup = true;
     
     if (e.key === 'ArrowDown') {
       globalSearchFocus++;
@@ -303,29 +294,24 @@ document.addEventListener('keydown', function(e) {
       globalSearchFocus--;
       updateGlobalSearchFocus(items);
     } else if (e.key === 'Enter') {
-      // 🚀 超級加速體驗：如果沒有用上下鍵選過，按下 Enter 會「預設直接帶入第一筆」！
       let targetIndex = globalSearchFocus > -1 ? globalSearchFocus : 0;
       if (items[targetIndex]) {
-        items[targetIndex].click(); // 模擬滑鼠點擊該選項
+        items[targetIndex].click();
         globalSearchFocus = -1;
       }
     }
   } else {
-    // 如果按了其他打字的按鍵，重新計算選單位置
     globalSearchFocus = -1;
   }
 });
 
-// UI 高亮渲染器
 function updateGlobalSearchFocus(items) {
   for (let i = 0; i < items.length; i++) {
     items[i].style.backgroundColor = '';
   }
-  // 循環定位 (到底部會回到最上面)
   if (globalSearchFocus >= items.length) globalSearchFocus = 0;
   if (globalSearchFocus < 0) globalSearchFocus = (items.length - 1);
   
-  // 加上高亮底色，並自動將畫面捲動到該項目
   items[globalSearchFocus].style.backgroundColor = '#e2e3e5';
   items[globalSearchFocus].scrollIntoView({ block: 'nearest' });
 }
