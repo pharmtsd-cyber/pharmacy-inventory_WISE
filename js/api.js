@@ -204,23 +204,28 @@ export function startCFSyncPolling() {
 }
 
 // ==========================================
-// 🛡️ 強制遮罩引擎：必須等 CF 清空才能執行下一步
+// 🛡️ 強制遮罩引擎：安全等待 CF 清空
 // ==========================================
 export function ensureDataSynced(callback) {
-  toggleLoader(true); // 立刻叫出遮罩
-  const loaderText = document.querySelector('#loader .text-academic');
-  if (loaderText) loaderText.innerText = '等待資料寫入 Google 表單...';
+  // 呼叫安全的 toggleLoader，傳入自定義文字
+  toggleLoader(true, '等待資料寫入 Google 表單...');
 
   const check = () => {
     fetchBackend('checkPendingSync').then(res => {
-      // 只要待傳數量 = 0，就解除封印，執行 callback！
+      // 只要待傳數量 = 0，關閉遮罩並執行 callback！
       if (res && res.success && res.pendingCount === 0) {
-        if (loaderText) loaderText.innerText = '系統處理中...'; // 復原文字
+        toggleLoader(false); // 關閉防護罩
         callback();
       } else {
-        setTimeout(check, 3000); // 還沒清空，3秒後再查一次
+        // 還沒清空，繼續安靜在背景等待，不重複操作 DOM
+        setTimeout(check, 3000); 
       }
-    }).catch(() => setTimeout(check, 3000));
+    }).catch(() => {
+      // 若網路臨時異常，3秒後重試，不中斷遮罩
+      setTimeout(check, 3000);
+    });
   };
+  
+  // 啟動第一次檢查
   check();
 }
