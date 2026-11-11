@@ -41,11 +41,29 @@ export function updateSyncUI(activeCount) {
   }
 }
 
-// 切換全螢幕載入動畫
-export function toggleLoader(show) {
+// ==========================================
+// 🛡️ 安全的全螢幕載入動畫 (具備防重入保護，防止 DOM 渲染錯亂)
+// ==========================================
+let isLoaderActive = false;
+
+export function toggleLoader(show, customText = '系統處理中...') {
   const loader = document.getElementById('loader');
-  if (loader) {
-    loader.style.display = show ? 'flex' : 'none';
+  if (!loader) return;
+
+  const loaderText = loader.querySelector('.text-academic');
+
+  if (show) {
+    // 如果已經在顯示中，就只更新文字，不重新觸發 DOM 展開，防止動畫與旋轉錯亂
+    if (loaderText) loaderText.innerText = customText;
+    
+    if (!isLoaderActive) {
+      isLoaderActive = true;
+      loader.style.display = 'flex';
+    }
+  } else {
+    isLoaderActive = false;
+    loader.style.display = 'none';
+    if (loaderText) loaderText.innerText = '系統處理中...'; // 復原預設文字
   }
 }
 
