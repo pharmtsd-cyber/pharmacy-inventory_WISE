@@ -12,7 +12,7 @@ import {
 import { 
   initMonthlyMode, switchMonthlyTab, switchStockSubTab, switchDeskSubTab, switchOnlineSubTab, switchRecordsSubTab,
   handleStockSearch, handleOnlineSearch, selectStockDrug, selectOnlineDrug, 
-  handleTableSelectChange, submitMonthlyDeskBatch, updateBatchCount, getUnsavedDeskCount, submitMonthlyStock, submitMonthlyOnline, 
+  handleTableSelectChange, submitMonthlyDeskOne, flushDeskQueue, getUnsavedDeskCount, submitMonthlyStock, submitMonthlyOnline, 
   updateOnlineUI, startLiveScanner, closeLiveScanner, parseBarcodeAndSubmit, 
   loadUserRecords, handleRecordFilterSearch, clearRecordFilter, applyRecordFilter, 
   editRecord, toggleMonthlyRecordStatus, refreshMonthlyData,
@@ -26,18 +26,22 @@ import {
 
 
 // ==========================================
-// 🛡️ 瀏覽器與 APP 內部防護網 (防止資料遺失)
+// 🛡️ 瀏覽器與 APP 內部防護網 (自動攔截與主動打包)
 // ==========================================
 window.addEventListener('beforeunload', function (e) {
   const unsavedCount = typeof getUnsavedDeskCount === 'function' ? getUnsavedDeskCount() : 0;
   if (activeUploads > 0 || unsavedCount > 0) {
-    const msg = '尚有未打包送出或上傳中的盤點資料，現在離開將會中斷作業！';
+    // 若使用者直接滑掉或關閉分頁，順手觸發一次背景無阻擋打包嘗試送出
+    if (unsavedCount > 0 && typeof flushDeskQueue === 'function') {
+      flushDeskQueue({ showBlockingLoader: false });
+    }
+    const msg = '尚有待打包同步的盤點資料，請等待同步完成再關閉網頁！';
     e.returnValue = msg; 
     return msg;          
   }
 });
 
-// 🌟 覆寫頂部 Navbar 返回按鈕，加入防護
+// 🌟 覆寫頂部 Navbar 返回按鈕：離開前自動主動打包
 window.backToModeSelect = function() {
   if (activeUploads > 0) {
     alert(`⚠️ 系統正在背景同步，請稍候幾秒鐘，待畫面上方顯示「已全數同步」後再離開。`);
@@ -45,9 +49,13 @@ window.backToModeSelect = function() {
   }
   const unsavedCount = typeof getUnsavedDeskCount === 'function' ? getUnsavedDeskCount() : 0;
   if (unsavedCount > 0) {
-    if (!confirm(`⚠️ 您目前有 ${unsavedCount} 筆已填寫但尚未打包送出的數量！\n確定要離開月盤點模式嗎？`)) {
-      return;
-    }
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: (success) => {
+        if (success) switchView('view-mode-select');
+      }
+    });
+    return;
   }
   switchView('view-mode-select');
 };
@@ -61,31 +69,43 @@ window.handleMonthlyBack = function() {
   originalHandleMonthlyBack();
 };
 
+const originalHandleLogout = handleLogout;
+window.handleLogout = function() {
+  const unsavedCount = typeof getUnsavedDeskCount === 'function' ? getUnsavedDeskCount() : 0;
+  if (unsavedCount > 0) {
+    flushDeskQueue({
+      showBlockingLoader: true,
+      onComplete: (success) => {
+        if (success) originalHandleLogout();
+      }
+    });
+    return;
+  }
+  originalHandleLogout();
+};
+
 // ==========================================
 // 🔄 網路監聽與智慧型靜默刷新
 // ==========================================
-window.addEventListener('online', syncOfflineData);
+window.addEventListener('online', () => {
+  syncOfflineData();
+  if (typeof getUnsavedDeskCount === 'function' && getUnsavedDeskCount() > 0) {
+    flushDeskQueue({ showBlockingLoader: false });
+  }
+});
 document.addEventListener('DOMContentLoaded', syncOfflineData);
 
 function safeSilentRefresh() {
-  // 1. 偵測游標是否停留在任何輸入框 (打字中)
   const activeTagName = document.activeElement ? document.activeElement.tagName : '';
   const isTyping = (activeTagName === 'INPUT' || activeTagName === 'TEXTAREA');
-
-  // 2. 偵測畫面上是否有任何 Bootstrap 彈窗處於開啟狀態
   const hasOpenModal = document.querySelector('.modal.show') !== null;
 
-  // 3. 偵測月盤點調劑台是否有填寫一半尚未送出的草稿
-  const hasUnsavedDesk = typeof getUnsavedDeskCount === 'function' && getUnsavedDeskCount() > 0;
-
-  // 🛡️ 如果藥師正在忙或有未送出草稿，則進入「等待模式」避免衝掉輸入框
-  if (isTyping || hasOpenModal || hasUnsavedDesk) {
-    console.log('⏳ 藥師正在操作中或尚有未送出草稿，暫停畫面重繪，2秒後重試...');
+  if (isTyping || hasOpenModal) {
+    console.log('⏳ 藥師正在操作中，暫停畫面重繪，2秒後重試...');
     setTimeout(safeSilentRefresh, 2000); 
     return;
   }
 
-  // ✅ 安全執行畫面重繪
   if (session.mode === '月盤點') {
     loadUserRecords(() => { console.log('🔄 [靜默刷新] 月盤點軌跡已完美對齊'); });
     refreshDashboardDataSilently();
@@ -126,7 +146,6 @@ window.openMaintenanceLink = function() {
 
 window.switchView = switchView;
 window.handleLogin = handleLogin;
-window.handleLogout = handleLogout;
 
 window.selectMode = function(modeName) {
   session.mode = modeName;
@@ -159,8 +178,8 @@ window.handleOnlineSearch = handleOnlineSearch;
 window.selectStockDrug = selectStockDrug;
 window.selectOnlineDrug = selectOnlineDrug;
 window.handleTableSelectChange = handleTableSelectChange;
-window.submitMonthlyDeskBatch = submitMonthlyDeskBatch;
-window.updateBatchCount = updateBatchCount;
+window.submitMonthlyDeskOne = submitMonthlyDeskOne;
+window.flushDeskQueue = flushDeskQueue;
 window.submitMonthlyStock = submitMonthlyStock;
 window.submitMonthlyOnline = submitMonthlyOnline;
 window.updateOnlineUI = updateOnlineUI;
@@ -204,7 +223,6 @@ let calcExpression = '';
 window.openCalculator = function(targetId, title = '小算盤') {
   calcTargetId = targetId;
   const targetInput = document.getElementById(targetId);
-  // 如果輸入框已經有數字，就帶入作為算式開頭
   calcExpression = targetInput ? targetInput.value || '' : '';
   document.getElementById('calc-title').innerText = title;
   updateCalcDisplay();
@@ -233,11 +251,10 @@ window.calcBackspace = function() {
 window.calcEqual = function() {
   if (!calcExpression) return;
   try {
-    // 嚴格過濾字元，防止非法符號並進行安全運算
     const sanitized = calcExpression.toString().replace(/[^-()\d/*+.]/g, '');
     let result = new Function('return ' + sanitized)();
     if (result !== undefined && !isNaN(result)) {
-       result = Math.round(result * 1000) / 1000; // 解決 JavaScript 浮點數誤差
+       result = Math.round(result * 1000) / 1000;
        calcExpression = result.toString();
     } else {
        calcExpression = 'Error';
@@ -249,12 +266,11 @@ window.calcEqual = function() {
 };
 
 window.calcConfirm = function() {
-  calcEqual(); // 點擊確認時，自動把還沒按等於的算式結算出來
+  calcEqual();
   if (calcExpression !== 'Error' && calcExpression !== '') {
     const target = document.getElementById(calcTargetId);
     if (target) {
         target.value = calcExpression;
-        // 🌟 觸發 input 事件，自動將小算盤結果存入草稿箱並更新「已填寫 X 筆」徽章
         target.dispatchEvent(new Event('input')); 
     }
   }
@@ -265,35 +281,30 @@ function updateCalcDisplay() {
   const display = document.getElementById('calc-display');
   if(display) {
       display.innerText = calcExpression || '0';
-      display.scrollLeft = display.scrollWidth; // 算式變長時自動往右捲動
+      display.scrollLeft = display.scrollWidth;
   }
 }
 
 // ==========================================
-// ✨ 全域模糊搜尋「鍵盤導航引擎」 (支援全系統所有搜尋框)
+// ✨ 全域模糊搜尋「鍵盤導航引擎」
 // ==========================================
 let globalSearchFocus = -1;
 let blockSearchKeyup = false;
 
-// 1. 捕獲階段攔截 keyup：防止按上下鍵或 Enter 後觸發原本的 onkeyup 重新搜尋
 window.addEventListener('keyup', function(e) {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
     if (blockSearchKeyup) {
-      e.stopPropagation(); // 封印事件，不讓它傳遞給 HTML 的 onkeyup
-      blockSearchKeyup = false; // 解除封印
+      e.stopPropagation();
+      blockSearchKeyup = false;
     }
   }
-}, true); // true 代表在最高層級就先攔截下來
+}, true);
 
-// 2. 監聽 keydown：處理上下移動與確認帶入
 document.addEventListener('keydown', function(e) {
-  // 確保目前是在輸入框裡面操作
   if (e.target.tagName !== 'INPUT') return;
   
-  // 自動尋找畫面上目前被打開的下拉選單 (支援各個分頁的 dropdown)
   const activeDropdown = Array.from(document.querySelectorAll('.search-dropdown, [id$="-dropdown"]')).find(d => d.style.display === 'block');
   
-  // 如果沒有下拉選單，就不介入，讓系統正常運作
   if (!activeDropdown) {
     globalSearchFocus = -1;
     return;
@@ -302,10 +313,9 @@ document.addEventListener('keydown', function(e) {
   const items = activeDropdown.getElementsByClassName('search-dropdown-item');
   if (items.length === 0) return;
 
-  // 如果按下的是上下鍵或 Enter
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
-    e.preventDefault(); // 防止游標亂跑或觸發預設表單送出
-    blockSearchKeyup = true; // 標記，要求接下來的 keyup 閉嘴
+    e.preventDefault();
+    blockSearchKeyup = true;
     
     if (e.key === 'ArrowDown') {
       globalSearchFocus++;
@@ -314,29 +324,24 @@ document.addEventListener('keydown', function(e) {
       globalSearchFocus--;
       updateGlobalSearchFocus(items);
     } else if (e.key === 'Enter') {
-      // 🚀 超級加速體驗：如果沒有用上下鍵選過，按下 Enter 會「預設直接帶入第一筆」！
       let targetIndex = globalSearchFocus > -1 ? globalSearchFocus : 0;
       if (items[targetIndex]) {
-        items[targetIndex].click(); // 模擬滑鼠點擊該選項
+        items[targetIndex].click();
         globalSearchFocus = -1;
       }
     }
   } else {
-    // 如果按了其他打字的按鍵，重新計算選單位置
     globalSearchFocus = -1;
   }
 });
 
-// UI 高亮渲染器
 function updateGlobalSearchFocus(items) {
   for (let i = 0; i < items.length; i++) {
     items[i].style.backgroundColor = '';
   }
-  // 循環定位 (到底部會回到最上面)
   if (globalSearchFocus >= items.length) globalSearchFocus = 0;
   if (globalSearchFocus < 0) globalSearchFocus = (items.length - 1);
   
-  // 加上高亮底色，並自動將畫面捲動到該項目
   items[globalSearchFocus].style.backgroundColor = '#e2e3e5';
   items[globalSearchFocus].scrollIntoView({ block: 'nearest' });
 }
