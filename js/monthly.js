@@ -304,7 +304,6 @@ window.updateBatchCount = function() {
   if (badge) badge.innerText = count;
 };
 
-// 🌟 3. 核心邏輯：打包蒐集資料並要求畫面鎖定等待回傳
 export function submitMonthlyDeskBatch() {
   const inputs = document.querySelectorAll('.batch-qty-input');
   const batchArray = [];
@@ -326,22 +325,27 @@ export function submitMonthlyDeskBatch() {
 
   if (batchArray.length === 0) return alert('請至少輸入一筆藥品數量再送出！');
 
-  toggleLoader(true); // 鎖死畫面，拒絕樂觀更新
+  // 🌟 呼叫進度條模式的 Loading！
+  toggleLoader(true, `📦 正在打包送出 ${batchArray.length} 筆資料...`, true);
 
-  // 借用 api.js 裡處理大量資料的方法
   fetchBackend('syncBatchOfflineData', { batchArray: JSON.stringify(batchArray) })
     .then(res => {
       if (res && res.success) {
-        showToast(`成功批次寫入 ${batchArray.length} 筆資料！`);
-        // 🌟 完全仰賴伺服器資料進行更新，重抓初始化資料即可自動解鎖畫面
-        refreshMonthlyData(); 
+        // 先呼叫 false 讓進度條跑到 100%
+        toggleLoader(false, '', true);
+        
+        // 延遲一下，讓使用者看完 100% 滿格後再重整畫面
+        setTimeout(() => {
+           showToast(`🎉 成功批次寫入 ${batchArray.length} 筆資料！`);
+           refreshMonthlyData(); 
+        }, 700);
       } else {
-        toggleLoader(false);
+        toggleLoader(false, '', true);
         alert("❌ 批次寫入失敗：" + (res ? res.message : '未知錯誤'));
       }
     })
     .catch(err => {
-      toggleLoader(false);
+      toggleLoader(false, '', true);
       alert("⚠️ 網路連線異常，請稍後再試：" + err.message);
     });
 }
