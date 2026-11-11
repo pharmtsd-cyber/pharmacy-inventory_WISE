@@ -15,7 +15,15 @@
 </head>
 <body>
 
-  <div id="loader" class="loading-overlay"><div class="spinner-border text-academic mb-2"></div><div class="fw-bold text-academic">系統處理中...</div></div>
+  <div id="loader" class="loading-overlay">
+    <div id="loader-spinner" class="spinner-border text-academic mb-3" style="width: 3rem; height: 3rem;"></div>
+    <div id="loader-text" class="fw-bold text-academic mb-3 fs-5">系統處理中...</div>
+    <div id="loader-progress-container" class="w-75 d-none" style="max-width: 400px;">
+      <div class="progress shadow-sm" style="height: 25px; border-radius: 12px;">
+        <div id="loader-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-academic fw-bold" role="progressbar" style="width: 0%; font-size: 1.1rem; line-height: 25px;">0%</div>
+      </div>
+    </div>
+  </div>
   <div id="toast-container"></div>
 
 <nav class="navbar navbar-dark navbar-academic fixed-top shadow-sm px-2 px-md-3 py-2">
