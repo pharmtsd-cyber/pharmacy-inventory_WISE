@@ -1,4 +1,4 @@
-import { WEB_APP_URL } from './config.js';
+import { WEB_APP_URL, CF_WORKER_URL } from './config.js';
 import { updateSyncUI, showToast } from './ui.js';
 
 export let activeUploads = 0;
@@ -88,12 +88,18 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     }
 
     const isLargeData = (action === 'saveAdminSortData');
-    let finalUrl = WEB_APP_URL;
+    
+    // 🌟 1. 定義哪些動作要走 Cloudflare 高速通道 (針對月盤點高併發)
+    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'];
+    
+    // 🌟 2. 智慧分流：如果是 CF 動作就走 CF_WORKER_URL，否則走原本的 WEB_APP_URL
+    let finalUrl = cfActions.includes(action) ? CF_WORKER_URL : WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
-    if (isLargeData) {
+    if (isLargeData || cfActions.includes(action)) {
+      // 🌟 CF 也是走 POST 傳輸
       fetchOptions.method = 'POST';
-      fetchOptions.headers = { "Content-Type": "text/plain;charset=utf-8" };
+      fetchOptions.headers = { "Content-Type": "application/json;charset=utf-8" };
       fetchOptions.body = JSON.stringify(payload);
     } else {
       fetchOptions.method = 'GET';
@@ -101,7 +107,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       for (const key in payload) {
         params.append(key, payload[key]);
       }
-      finalUrl = `${WEB_APP_URL}?${params.toString()}`;
+      finalUrl = `${finalUrl}?${params.toString()}`;
     }
 
     const attemptFetch = (retriesLeft) => {
