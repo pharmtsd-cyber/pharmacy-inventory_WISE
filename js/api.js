@@ -88,7 +88,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
     }
 
     const isLargeData = (action === 'saveAdminSortData');
-    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus'];
+    const cfActions = ['submitInventory', 'updateMonthlyRecord', 'modifyMonthlyRecordStatus', 'getUnsyncedRecords'];
     let finalUrl = cfActions.includes(action) ? CF_WORKER_URL : WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
