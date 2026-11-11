@@ -20,19 +20,22 @@ body {
 .search-dropdown { position: absolute; top: 100%; left: 0; z-index: 1050; width: 100%; max-height: 250px; overflow-y: auto; background: white; border: 1px solid #ced4da; border-radius: 0 0 4px 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
 .search-dropdown-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f3f5; }
 .search-dropdown-item:hover { background-color: #e2e3e5; }
+/* ==========================================
+   🛡️ 絕對不透明且獨立的最上層載入遮罩 (徹底解決文字透視與錯亂)
+   ========================================== */
 .loading-overlay { 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100vw; 
-  height: 100vh; 
-  /* 務必確保背景是完全不透明的白色或深色，阻絕後方文字透視 */
-  background: rgba(255, 255, 255, 0.95) !important; 
+  position: fixed !important; 
+  top: 0 !important; 
+  left: 0 !important; 
+  width: 100vw !important; 
+  height: 100vh !important; 
+  background: #ffffff !important; /* ⚠️ 改為 100% 純白不透明，絕對阻絕後方任何文字透視與混淆 */
   display: none; 
-  z-index: 99999 !important; /* 拉高層級，凌駕於所有元件之上 */
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center; 
+  z-index: 2147483647 !important; /* 拉到瀏覽器允許的最高層級，凌駕於所有元件之上 */
+  flex-direction: column !important; 
+  align-items: center !important; 
+  justify-content: center !important; 
+  transform: none !important; /* 強制防止任何父層變形導致的旋轉錯位 */
 }
 #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .custom-toast { min-width: 280px; color: white; text-align: center; border-radius: 8px; padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-weight: bold; opacity: 0; transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; transform: translateY(-20px); }
