@@ -12,7 +12,7 @@ import {
 import { 
   initMonthlyMode, switchMonthlyTab, switchStockSubTab, switchDeskSubTab, switchOnlineSubTab, switchRecordsSubTab,
   handleStockSearch, handleOnlineSearch, selectStockDrug, selectOnlineDrug, 
-  handleTableSelectChange, submitMonthlyDeskBatch, submitMonthlyStock, submitMonthlyOnline, 
+  handleTableSelectChange, submitMonthlyDeskBatch, updateBatchCount, getUnsavedDeskCount, submitMonthlyStock, submitMonthlyOnline, 
   updateOnlineUI, startLiveScanner, closeLiveScanner, parseBarcodeAndSubmit, 
   loadUserRecords, handleRecordFilterSearch, clearRecordFilter, applyRecordFilter, 
   editRecord, toggleMonthlyRecordStatus, refreshMonthlyData,
@@ -29,18 +29,25 @@ import {
 // 🛡️ 瀏覽器與 APP 內部防護網 (防止資料遺失)
 // ==========================================
 window.addEventListener('beforeunload', function (e) {
-  if (activeUploads > 0) {
-    const msg = '尚有資料在背景上傳中，現在離開將會遺失資料！請等待同步完成。';
+  const unsavedCount = typeof getUnsavedDeskCount === 'function' ? getUnsavedDeskCount() : 0;
+  if (activeUploads > 0 || unsavedCount > 0) {
+    const msg = '尚有未打包送出或上傳中的盤點資料，現在離開將會中斷作業！';
     e.returnValue = msg; 
     return msg;          
   }
 });
 
-// 🌟 覆寫返回按鈕，加入防護
+// 🌟 覆寫頂部 Navbar 返回按鈕，加入防護
 window.backToModeSelect = function() {
   if (activeUploads > 0) {
     alert(`⚠️ 系統正在背景同步，請稍候幾秒鐘，待畫面上方顯示「已全數同步」後再離開。`);
     return;
+  }
+  const unsavedCount = typeof getUnsavedDeskCount === 'function' ? getUnsavedDeskCount() : 0;
+  if (unsavedCount > 0) {
+    if (!confirm(`⚠️ 您目前有 ${unsavedCount} 筆已填寫但尚未打包送出的數量！\n確定要離開月盤點模式嗎？`)) {
+      return;
+    }
   }
   switchView('view-mode-select');
 };
@@ -68,9 +75,12 @@ function safeSilentRefresh() {
   // 2. 偵測畫面上是否有任何 Bootstrap 彈窗處於開啟狀態
   const hasOpenModal = document.querySelector('.modal.show') !== null;
 
-  // 🛡️ 如果藥師正在忙，則進入「等待模式」
-  if (isTyping || hasOpenModal) {
-    console.log('⏳ 藥師正在操作中，暫停畫面重繪，2秒後重試...');
+  // 3. 偵測月盤點調劑台是否有填寫一半尚未送出的草稿
+  const hasUnsavedDesk = typeof getUnsavedDeskCount === 'function' && getUnsavedDeskCount() > 0;
+
+  // 🛡️ 如果藥師正在忙或有未送出草稿，則進入「等待模式」避免衝掉輸入框
+  if (isTyping || hasOpenModal || hasUnsavedDesk) {
+    console.log('⏳ 藥師正在操作中或尚有未送出草稿，暫停畫面重繪，2秒後重試...');
     setTimeout(safeSilentRefresh, 2000); 
     return;
   }
@@ -149,7 +159,8 @@ window.handleOnlineSearch = handleOnlineSearch;
 window.selectStockDrug = selectStockDrug;
 window.selectOnlineDrug = selectOnlineDrug;
 window.handleTableSelectChange = handleTableSelectChange;
-window.submitMonthlyDeskBatch = submitMonthlyDeskBatch; // 🌟 替換為批次送出
+window.submitMonthlyDeskBatch = submitMonthlyDeskBatch;
+window.updateBatchCount = updateBatchCount;
 window.submitMonthlyStock = submitMonthlyStock;
 window.submitMonthlyOnline = submitMonthlyOnline;
 window.updateOnlineUI = updateOnlineUI;
@@ -183,7 +194,6 @@ window.submitDrugNote = submitDrugNote;
 window.voidDrugNote = voidDrugNote;
 
 window.enterTableInventory = enterTableInventory;
-window.refreshMonthlyData = refreshMonthlyData;
 
 // ==========================================
 // ✨ 全域小算盤功能
@@ -244,7 +254,7 @@ window.calcConfirm = function() {
     const target = document.getElementById(calcTargetId);
     if (target) {
         target.value = calcExpression;
-        // 🌟 觸發 input 事件，讓月盤點的「已填寫 X 筆」徽章可以即時反應
+        // 🌟 觸發 input 事件，自動將小算盤結果存入草稿箱並更新「已填寫 X 筆」徽章
         target.dispatchEvent(new Event('input')); 
     }
   }
