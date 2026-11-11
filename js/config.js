@@ -6,13 +6,16 @@
 const urlParams = new URLSearchParams(window.location.search);
 export const currentDept = urlParams.get('dept');
 
-// 🌟 2. 各單位的「GAS 後端網址」對照表
+// 🌟 2. 全面升級：統一指向 Cloudflare Worker 高速 API
+// 請將下方引號內的網址，替換成您在 Cloudflare 部署成功後拿到的 workers.dev 網址
+const CF_WORKER_URL = "https://femh-inventory-api.pharm-tsd.workers.dev"; 
+
 const BACKEND_MAP = {
-  admin: "https://script.google.com/macros/s/AKfycbyi8p5Mz9K68ZKBQuHv6MWa10KPLjKrKdcm_vZMYz1L6pNli6aLBKkQdG94Mnsj-uoC/exec", // 智能運管組 (目前的開發網址)
-  ipd: "https://script.google.com/macros/s/AKfycbydOWsDkwmX8BRKyOdbdidsdbC7cT0FIBmWVkmdjKKYw-4XxUXaQElx99AFMz_KIPlVsg/exec",
-  opd: "https://script.google.com/macros/s/AKfycbymGL_J04TEDCFV7xH-M5-zCYmgj8BAtz6WVE06m3MR4Sl1rZ1SGs6ALDyAlWbsoDmHBg/exec", 
-  erd: "https://script.google.com/macros/s/AKfycbyMTHmPUdKmhyLO4Gm-OPKuYyAFpclId_bwFcSAUsAIt4QKLlMCXpUOGXBI1MPfxmKg/exec", 
-  comp: "https://script.google.com/macros/s/AKfycbwQzl8Cbi6ZZtcMDcnm50m-5L6771mJyxIVoX_d_yIlgA7QJ3iN0ss_RonUBZeHuzFhig/exec" 
+  admin: CF_WORKER_URL, 
+  ipd: CF_WORKER_URL,
+  opd: CF_WORKER_URL, 
+  erd: CF_WORKER_URL, 
+  comp: CF_WORKER_URL 
 };
 
 // 🌟 🚀 新增：各單位專屬的「盤點表維護連結」對照表
