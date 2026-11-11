@@ -87,7 +87,7 @@ export function fetchBackend(action, data = {}, retryCount = 3) {
       payload.id = data;
     }
 
-    const isLargeData = (action === 'saveAdminSortData');
+    const isLargeData = (action === 'saveAdminSortData' || action === 'syncBatchOfflineData');
     let finalUrl = WEB_APP_URL;
     let fetchOptions = { redirect: 'follow' };
 
